@@ -6,12 +6,9 @@
 
 A clean, opinionated statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
-```
-⌥ main  +42 -7  ✦ Opus 4.6  ▓▓▓░░ 58%  ⚡1.2k tpm
-```
+<img width="640" height="91" src="https://github.com/user-attachments/assets/0ab768af-caf8-4a3f-9800-a07621fa3df7" />
 
-
-## Indicators
+## What's included
 
 | Indicator | Example | Why |
 |-----------|---------|-----|
@@ -56,17 +53,16 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 
 ## Limitations
 
-- Subagent token usage is not tracked (not exposed by Claude Code)
+- Subagent token usage is not tracked
 
 
 ## Notes
 
-- Works in empty repos, detached HEAD, and normal branches
-- Tracks text diffs, binary file changes, and untracked files
-- Caps untracked line counting at 10k to avoid slowdowns on large repos
-- Uses `--no-optional-locks` on all git calls to prevent lock contention
 - Context bar color shifts from dim to yellow-green to yellow to orange as usage increases
-- POSIX shell — no bash required
+- Tracks text diffs, binary file changes, and untracked files
+- Caps untracked line counting at 10k to avoid slowdowns on large diffs
+- Works in empty repos, detached HEAD, and normal branches
+- Uses `--no-optional-locks` on all git calls to prevent lock contention
 
 
 ## Contributing
