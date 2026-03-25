@@ -4,13 +4,13 @@
 [![POSIX shell](https://img.shields.io/badge/Shell-POSIX-green.svg)](statusline.sh)
 [![macOS / Linux](https://img.shields.io/badge/macOS_|_Linux-compatible-lightgrey.svg)]()
 
-A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits. No cost or session window tracking.
+A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits.
 
 <img width="640" height="91" src="https://github.com/user-attachments/assets/0ab768af-caf8-4a3f-9800-a07621fa3df7" />
 
 ## Design principles
 
-- **Essential** – relevant indicators, shown without extra labels, dividers, or empty states
+- **Essential** – relevant indicators shown without extra labels, dividers, or empty states
 - **Quiet** – supporting the main action, not competing with it
 - **Terminal-first** – plain text symbols, no emojis
 
