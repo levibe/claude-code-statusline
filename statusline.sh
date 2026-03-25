@@ -1,11 +1,14 @@
 #!/bin/sh
 # Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ⚡N tpm
 
+MODEL_STATE_PREFIX="claude-code-statusline-model"
+
 input=$(cat)
 
 # Single jq call to extract all fields (floor handles potential floats)
 eval "$(echo "$input" | jq -r '
   "cwd=\(.cwd // "" | @sh)",
+  "session_id=\(.session_id // "" | @sh)",
   "used=\(.context_window.used_percentage // 0 | floor | @sh)",
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
@@ -14,7 +17,7 @@ eval "$(echo "$input" | jq -r '
 ')"
 
 # Defaults if jq fails or fields are missing
-cwd=${cwd:-}; used=${used:-0}; model=${model:-unknown}
+cwd=${cwd:-}; session_id=${session_id:-}; used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
 
 # Tokens per minute
@@ -23,6 +26,45 @@ if [ "$duration_ms" -gt 0 ]; then
   tpm=$(( (total_tokens * 60000) / duration_ms ))
 else
   tpm=0
+fi
+
+# Per-session model cache — prevents global model changes in other sessions
+# from affecting this session's display before it has new activity.
+#
+# State file format (2 lines):
+#   line 1: last known model string for this session
+#   line 2: duration_ms at the time that model was recorded
+#
+# Update rule: only replace the cached model when duration_ms has increased,
+# meaning this session processed a real assistant turn.
+# A model change with no new turn will take effect on the next turn.
+#
+# Each session has a unique session_id → unique safe_id → no cross-session
+# file collisions, so a non-atomic write is safe here.
+safe_id=$(printf '%s' "$session_id" | tr -dc 'a-zA-Z0-9_-')
+if [ -n "$safe_id" ]; then
+  model_file="/tmp/${MODEL_STATE_PREFIX}-${safe_id}"
+  if [ -f "$model_file" ]; then
+    cached_model=$(head -1 "$model_file")
+    cached_duration=$(tail -1 "$model_file")
+    # Reject non-numeric cached_duration (e.g. from a corrupted/truncated file)
+    cached_duration=$(printf '%s' "$cached_duration" | grep -E '^[0-9]+$' || echo 0)
+    cached_duration=${cached_duration:-0}
+    if [ "$duration_ms" -lt "$cached_duration" ] 2>/dev/null; then
+      # duration_ms went backwards → session restarted; reset cache
+      [ "$model" != "unknown" ] && printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+    elif [ "$duration_ms" -gt "$cached_duration" ] 2>/dev/null && [ "$model" != "unknown" ]; then
+      # New activity with a known model → update cache
+      printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+    else
+      # No new activity, or model is unknown → keep cached model
+      [ -n "$cached_model" ] && model="$cached_model"
+    fi
+  elif [ "$model" != "unknown" ]; then
+    # First invocation for this session → initialize cache
+    # Skip initialization if model is unknown (jq failure) to avoid caching a bad value
+    printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+  fi
 fi
 
 # 5-char progress bar (each bar = 20%)
