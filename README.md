@@ -70,7 +70,8 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
-- Prevents model name from bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
+- TPM uses a 5-minute sliding window for real-time throughput
+- Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 
 
 ## Contributing
