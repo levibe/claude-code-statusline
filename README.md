@@ -4,7 +4,7 @@
 [![POSIX shell](https://img.shields.io/badge/Shell-POSIX-green.svg)](statusline.sh)
 [![macOS / Linux](https://img.shields.io/badge/macOS_|_Linux-compatible-lightgrey.svg)]()
 
-A clean, opinionated statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+A minimal Claude Code statusline with context usage, branch, model, and diff info.
 
 <img width="640" height="91" src="https://github.com/user-attachments/assets/0ab768af-caf8-4a3f-9800-a07621fa3df7" />
 
@@ -17,14 +17,6 @@ A clean, opinionated statusline for [Claude Code](https://docs.anthropic.com/en/
 | Model | `✦ Opus 4.6` | Active model |
 | Context | `▓▓▓░░ 58%` | Stay under 50% for best results |
 | Throughput | `⚡ 1.2k tpm` | How fast you're going |
-
-
-## Requirements
-
-- [`jq`](https://jqlang.github.io/jq/) — JSON parsing
-- `git` — branch and diff information
-
-`brew install jq git` or `apt install jq git`
 
 
 ## Install
@@ -49,6 +41,14 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 ```
 
 3. Restart Claude Code.
+
+
+## Requirements
+
+- [`jq`](https://jqlang.github.io/jq/) — JSON parsing
+- `git` — branch and diff information
+
+`brew install jq git` or `apt install jq git`
 
 
 ## Limitations
