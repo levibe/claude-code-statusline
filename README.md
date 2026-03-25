@@ -63,6 +63,7 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 - Caps untracked line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
+- Prevents model name from bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 
 
 ## Contributing
