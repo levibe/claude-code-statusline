@@ -1,6 +1,8 @@
 #!/bin/sh
 # Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ⚡N tpm
 
+TPM_STATE_PREFIX="claude-code-statusline-tpm"
+TPM_WINDOW_MS=300000  # 5 minutes
 MODEL_STATE_PREFIX="claude-code-statusline-model"
 
 input=$(cat)
@@ -20,7 +22,15 @@ eval "$(echo "$input" | jq -r '
 cwd=${cwd:-}; session_id=${session_id:-}; used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
 
-# Tokens per minute
+# Session-scoped state key (used by model cache and sliding window TPM)
+safe_id=$(printf '%s' "$session_id" | tr -dc 'a-zA-Z0-9_-')
+
+# Temp file cleanup (set once, covers all temp files created below)
+tmpfile=""
+untracked_list=""
+trap 'rm -f "$tmpfile" "$untracked_list"' EXIT
+
+# Tokens per minute (full-session average as default)
 total_tokens=$((total_in + total_out))
 if [ "$duration_ms" -gt 0 ]; then
   tpm=$(( (total_tokens * 60000) / duration_ms ))
@@ -38,10 +48,6 @@ fi
 # Update rule: only replace the cached model when duration_ms has increased,
 # meaning this session processed a real assistant turn.
 # A model change with no new turn will take effect on the next turn.
-#
-# Each session has a unique session_id → unique safe_id → no cross-session
-# file collisions, so a non-atomic write is safe here.
-safe_id=$(printf '%s' "$session_id" | tr -dc 'a-zA-Z0-9_-')
 if [ -n "$safe_id" ]; then
   model_file="/tmp/${MODEL_STATE_PREFIX}-${safe_id}"
   if [ -f "$model_file" ]; then
@@ -64,6 +70,48 @@ if [ -n "$safe_id" ]; then
     # First invocation for this session → initialize cache
     # Skip initialization if model is unknown (jq failure) to avoid caching a bad value
     printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+  fi
+fi
+
+# Sliding window TPM (overrides full-session average when enough data)
+if [ -n "$safe_id" ]; then
+  state_file="/tmp/${TPM_STATE_PREFIX}-${safe_id}"
+  [ -f "$state_file" ] || : > "$state_file"
+
+  # Detect session restart (duration_ms went backwards)
+  last_ms=$(tail -n 1 "$state_file" 2>/dev/null | awk '$1 ~ /^[0-9]+$/ { print $1 }')
+  if [ -n "$last_ms" ] && [ "$duration_ms" -lt "$last_ms" ] 2>/dev/null; then
+    : > "$state_file"
+  fi
+
+  cutoff=$((duration_ms - TPM_WINDOW_MS))
+  [ "$cutoff" -lt 0 ] && cutoff=0
+
+  tmpfile=$(mktemp "/tmp/${TPM_STATE_PREFIX}-XXXXXX")
+
+  window_tpm=$(awk -v cutoff="$cutoff" -v cur_ms="$duration_ms" -v cur_tok="$total_tokens" -v tmpfile="$tmpfile" '
+    BEGIN { oldest_ms = ""; oldest_tok = ""; last_ms = "" }
+    $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $1 + 0 >= cutoff {
+      print > tmpfile
+      if (oldest_ms == "") { oldest_ms = $1 + 0; oldest_tok = $2 + 0 }
+      last_ms = $1 + 0
+    }
+    END {
+      if (last_ms != cur_ms + 0)
+        printf "%s %s\n", cur_ms, cur_tok > tmpfile
+      close(tmpfile)
+      delta_ms = cur_ms - oldest_ms
+      delta_tok = cur_tok - oldest_tok
+      if (oldest_ms != "" && delta_ms > 0)
+        printf "%d", (delta_tok * 60000) / delta_ms
+    }
+  ' "$state_file" 2>/dev/null)
+
+  [ -f "$tmpfile" ] && mv "$tmpfile" "$state_file"
+
+  # Negative deltas (e.g. context window reset) produce negative TPM — intentionally ignored
+  if [ -n "$window_tpm" ] && [ "$window_tpm" -gt 0 ] 2>/dev/null; then
+    tpm=$window_tpm
   fi
 fi
 
@@ -120,7 +168,6 @@ if [ -n "$cwd" ]; then
     untracked_lines=0
     untracked_capped=0
     untracked_list=$(mktemp)
-    trap 'rm -f "$untracked_list"' EXIT
     git --no-optional-locks -C "$cwd" ls-files --others --exclude-standard -z 2>/dev/null > "$untracked_list"
     total_untracked=$(tr -cd '\0' < "$untracked_list" | wc -c | tr -d ' ')
     total_untracked=${total_untracked:-0}
