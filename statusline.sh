@@ -58,7 +58,7 @@ if [ -n "$safe_id" ]; then
       printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
     else
       # No new activity, or model is unknown → keep cached model
-      model="$cached_model"
+      [ -n "$cached_model" ] && model="$cached_model"
     fi
   elif [ "$model" != "unknown" ]; then
     # First invocation for this session → initialize cache
