@@ -15,7 +15,7 @@ A minimal Claude Code statusline with context usage, branch, model, and diff inf
 - **Terminal-first** – plain text symbols, no emojis
 
 
-## What's included
+## Indicators
 
 | Indicator | Example | Why |
 |-----------|---------|-----|
@@ -23,7 +23,7 @@ A minimal Claude Code statusline with context usage, branch, model, and diff inf
 | Diff | `+42 -7` | Commit before new work |
 | Model | `✦ Opus 4.6` | Active model |
 | Context | `▓▓▓░░ 58%` | Stay under 50% for best results |
-| Throughput | `⚡ 1.2k tpm` | How fast you're going |
+| Throughput | `ϟ 1.2k tpm` | How fast you're going |
 
 
 ## Install
