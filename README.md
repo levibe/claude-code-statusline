@@ -4,9 +4,16 @@
 [![POSIX shell](https://img.shields.io/badge/Shell-POSIX-green.svg)](statusline.sh)
 [![macOS / Linux](https://img.shields.io/badge/macOS_|_Linux-compatible-lightgrey.svg)]()
 
-A minimal Claude Code statusline with context usage, branch, model, and diff info.
+A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits. No cost or session window tracking.
 
 <img width="640" height="91" src="https://github.com/user-attachments/assets/0ab768af-caf8-4a3f-9800-a07621fa3df7" />
+
+## Design principles
+
+- **Essential** – relevant indicators, shown without extra labels, dividers, or empty states
+- **Quiet** – supporting the main action, not competing with it
+- **Terminal-first** – plain text symbols, no emojis
+
 
 ## What's included
 
@@ -58,9 +65,9 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 
 ## Notes
 
-- Context bar color shifts from dim to yellow-green to yellow to orange as usage increases
-- Tracks text diffs, binary file changes, and untracked files
-- Caps untracked line counting at 10k to avoid slowdowns on large diffs
+- Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
+- Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
+- Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
 - Prevents model name from bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
