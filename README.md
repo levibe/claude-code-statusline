@@ -6,7 +6,7 @@
 
 A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits.
 
-<img width="685" height="162" alt="claude-code-statusline-github" src="https://github.com/user-attachments/assets/37575117-a394-4d81-9204-1d49f6b1f46e" />
+<img width="685" height="100" alt="Screenshot" src="https://github.com/user-attachments/assets/5ce0a134-6b07-4754-8b9c-dca3e8fc6574" />
 
 
 ## Design principles
