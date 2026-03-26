@@ -11,6 +11,7 @@ input=$(cat)
 eval "$(echo "$input" | jq -r '
   "cwd=\(.cwd // "" | @sh)",
   "session_id=\(.session_id // "" | @sh)",
+  "transcript_path=\(.transcript_path // "" | @sh)",
   "used=\(.context_window.used_percentage // 0 | floor | @sh)",
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
@@ -19,7 +20,8 @@ eval "$(echo "$input" | jq -r '
 ')"
 
 # Defaults if jq fails or fields are missing
-cwd=${cwd:-}; session_id=${session_id:-}; used=${used:-0}; model=${model:-unknown}
+cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
+used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
 
 # Session-scoped state key (used by model cache and sliding window TPM)
@@ -32,6 +34,19 @@ trap 'rm -f "$tmpfile" "$untracked_list"' EXIT
 
 # Tokens per minute (full-session average as default)
 total_tokens=$((total_in + total_out))
+
+# Subagent tokens (not included in main session totals)
+if [ -n "$transcript_path" ]; then
+  subagent_dir="${transcript_path%.jsonl}/subagents"
+  if [ -d "$subagent_dir" ]; then
+    subagent_tokens=$(cat "$subagent_dir"/agent-*.jsonl 2>/dev/null \
+      | jq -r 'select(.type == "assistant") | "\(.message.id) \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0)"' 2>/dev/null \
+      | awk '{usage[$1]=$2" "$3} END {for(id in usage){split(usage[id],a);s+=a[1]+a[2]} print s+0}')
+    subagent_tokens=${subagent_tokens:-0}
+    [ "$subagent_tokens" -gt 0 ] 2>/dev/null && total_tokens=$((total_tokens + subagent_tokens))
+  fi
+fi
+
 if [ "$duration_ms" -gt 0 ]; then
   tpm=$(( (total_tokens * 60000) / duration_ms ))
 else

@@ -59,17 +59,12 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 `brew install jq git` or `apt install jq git`
 
 
-## Limitations
-
-- Subagent token usage is not tracked
-
-
 ## Notes
 
 - Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
 - Tokens per minute bolt gains color as you speed up
 - Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
-- TPM uses a 5-minute sliding window
+- TPM uses a 5-minute sliding window and includes subagent token usage
 - Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
