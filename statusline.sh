@@ -4,6 +4,7 @@
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
 TPM_WINDOW_MS=300000  # 5 minutes
 MODEL_STATE_PREFIX="claude-code-statusline-model"
+SUBAGENT_STATE_PREFIX="claude-code-statusline-subagent"
 
 input=$(cat)
 
@@ -35,17 +36,35 @@ trap 'rm -f "$tmpfile" "$untracked_list"' EXIT
 # Tokens per minute (full-session average as default)
 total_tokens=$((total_in + total_out))
 
-# Subagent tokens (not included in main session totals)
-if [ -n "$transcript_path" ]; then
+# Subagent tokens (mtime-cached to avoid re-parsing unchanged files)
+subagent_tokens=0
+if [ -n "$transcript_path" ] && [ -n "$safe_id" ]; then
   subagent_dir="${transcript_path%.jsonl}/subagents"
   if [ -d "$subagent_dir" ]; then
-    subagent_tokens=$(cat "$subagent_dir"/agent-*.jsonl 2>/dev/null \
-      | jq -r 'select(.type == "assistant") | "\(.message.id) \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0)"' 2>/dev/null \
-      | awk '{usage[$1]=$2" "$3} END {for(id in usage){split(usage[id],a);s+=a[1]+a[2]} print s+0}')
-    subagent_tokens=${subagent_tokens:-0}
-    [ "$subagent_tokens" -gt 0 ] 2>/dev/null && total_tokens=$((total_tokens + subagent_tokens))
+    subagent_cache="/tmp/${SUBAGENT_STATE_PREFIX}-${safe_id}"
+    # Fingerprint: size:mtime:path per file, joined into one line
+    if stat -c '%s' /dev/null >/dev/null 2>&1; then
+      fingerprint=$(stat -c '%s:%Y:%n' "$subagent_dir"/agent-*.jsonl 2>/dev/null | tr '\n' '|')
+    else
+      fingerprint=$(stat -f '%z:%m:%N' "$subagent_dir"/agent-*.jsonl 2>/dev/null | tr '\n' '|')
+    fi
+    if [ -n "$fingerprint" ]; then
+      cached_fp=""
+      [ -f "$subagent_cache" ] && cached_fp=$(head -1 "$subagent_cache")
+      if [ "$fingerprint" = "$cached_fp" ]; then
+        subagent_tokens=$(tail -1 "$subagent_cache")
+      else
+        subagent_tokens=$(cat "$subagent_dir"/agent-*.jsonl 2>/dev/null \
+          | jq -r 'select(.type == "assistant") | "\(.message.id) \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0)"' 2>/dev/null \
+          | awk '{usage[$1]=$2" "$3} END {for(id in usage){split(usage[id],a);s+=a[1]+a[2]} print s+0}')
+        subagent_tokens=${subagent_tokens:-0}
+        printf '%s\n%s\n' "$fingerprint" "$subagent_tokens" > "$subagent_cache"
+      fi
+    fi
   fi
 fi
+subagent_tokens=${subagent_tokens:-0}
+[ "$subagent_tokens" -gt 0 ] 2>/dev/null && total_tokens=$((total_tokens + subagent_tokens))
 
 if [ "$duration_ms" -gt 0 ]; then
   tpm=$(( (total_tokens * 60000) / duration_ms ))
