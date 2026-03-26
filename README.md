@@ -66,6 +66,7 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 ## Notes
 
 - Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
+- Tokens per minute bolt gains color as you speed up
 - Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches

@@ -216,5 +216,16 @@ if [ "$tpm" -gt 0 ]; then
   else
     tpm_display="$tpm"
   fi
-  printf "${sep}${dim}⚡%s tpm${reset}" "$tpm_display"
+  if [ "$tpm" -ge 20000 ]; then
+    bolt="\033[38;5;57m⚡${dim}"   # deep violet
+  elif [ "$tpm" -ge 10000 ]; then
+    bolt="\033[91m⚡${dim}"        # red
+  elif [ "$tpm" -ge 5000 ]; then
+    bolt="\033[38;5;209m⚡${dim}"  # orange
+  elif [ "$tpm" -ge 1000 ]; then
+    bolt="\033[93m⚡${dim}"        # yellow
+  else
+    bolt="⚡"
+  fi
+  printf "${sep}${dim}${bolt}%s tpm${reset}" "$tpm_display"
 fi
