@@ -67,6 +67,7 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 ## Notes
 
 - Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
+- Tokens per minute bolt gains color as you speed up
 - Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
 - TPM uses a 5-minute sliding window
 - Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
