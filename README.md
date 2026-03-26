@@ -6,7 +6,8 @@
 
 A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits.
 
-<img width="640" height="91" src="https://github.com/user-attachments/assets/0ab768af-caf8-4a3f-9800-a07621fa3df7" />
+<img width="685" height="162" alt="claude-code-statusline-github" src="https://github.com/user-attachments/assets/37575117-a394-4d81-9204-1d49f6b1f46e" />
+
 
 ## Design principles
 
@@ -67,11 +68,11 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 
 - Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
 - Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
+- TPM uses a 5-minute sliding window
+- Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
-- TPM uses a 5-minute sliding window for real-time throughput
-- Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 
 
 ## Contributing
