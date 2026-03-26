@@ -23,7 +23,7 @@ A minimal Claude Code statusline with context usage, branch, model, and diff inf
 | Branch | `⌥ main` | Active branch |
 | Diff | `+42 -7` | Commit before new work |
 | Model | `✦ Opus 4.6` | Active model |
-| Context | `▓▓▓░░ 58%` | Stay under 50% for best results |
+| Context | `▓▓░░░ 43%` | Stay under 50% for best results |
 | Throughput | `ϟ 1.2k tpm` | How fast you're going |
 
 
