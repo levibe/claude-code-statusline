@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+
+- Track subagent token usage in TPM calculation with mtime-based caching
+- Add color tiers to TPM bolt indicator
+- Add BATS test suite
+
+### Fixed
+
+- Fix wrong model name displaying when data from Claude Code is corrupted by adding model name format validation
+
 ## 1.1.0
 
 ### Added
