@@ -69,6 +69,17 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - Works in empty repos, detached HEAD, and normal branches
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
+- Validates model names to filter garbled input from Claude Code
+
+
+## Development
+
+Run the test suite:
+
+```bash
+brew install bats-core  # https://bats-core.readthedocs.io/en/stable/installation.html
+bats test/
+```
 
 
 ## Contributing
