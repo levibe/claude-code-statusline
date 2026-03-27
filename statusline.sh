@@ -4,6 +4,7 @@
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
 TPM_WINDOW_MS=300000  # 5 minutes
 MODEL_STATE_PREFIX="claude-code-statusline-model"
+SUBAGENT_STATE_PREFIX="claude-code-statusline-subagent"
 
 input=$(cat)
 
@@ -11,6 +12,7 @@ input=$(cat)
 eval "$(echo "$input" | jq -r '
   "cwd=\(.cwd // "" | @sh)",
   "session_id=\(.session_id // "" | @sh)",
+  "transcript_path=\(.transcript_path // "" | @sh)",
   "used=\(.context_window.used_percentage // 0 | floor | @sh)",
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
@@ -19,8 +21,16 @@ eval "$(echo "$input" | jq -r '
 ')"
 
 # Defaults if jq fails or fields are missing
-cwd=${cwd:-}; session_id=${session_id:-}; used=${used:-0}; model=${model:-unknown}
+cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
+used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
+
+# Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
+# Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
+case "$model" in
+  unknown) ;;
+  *) echo "$model" | grep -qE '^[A-Z][a-z]+ [0-9]+\.[0-9]+$' || model="unknown" ;;
+esac
 
 # Session-scoped state key (used by model cache and sliding window TPM)
 safe_id=$(printf '%s' "$session_id" | tr -dc 'a-zA-Z0-9_-')
@@ -32,6 +42,37 @@ trap 'rm -f "$tmpfile" "$untracked_list"' EXIT
 
 # Tokens per minute (full-session average as default)
 total_tokens=$((total_in + total_out))
+
+# Subagent tokens (mtime-cached to avoid re-parsing unchanged files)
+subagent_tokens=0
+if [ -n "$transcript_path" ] && [ -n "$safe_id" ]; then
+  subagent_dir="${transcript_path%.jsonl}/subagents"
+  if [ -d "$subagent_dir" ]; then
+    subagent_cache="/tmp/${SUBAGENT_STATE_PREFIX}-${safe_id}"
+    # Fingerprint: size:mtime:path per file, joined into one line
+    if stat -c '%s' /dev/null >/dev/null 2>&1; then
+      fingerprint=$(stat -c '%s:%Y:%n' "$subagent_dir"/agent-*.jsonl 2>/dev/null | tr '\n' '|')
+    else
+      fingerprint=$(stat -f '%z:%m:%N' "$subagent_dir"/agent-*.jsonl 2>/dev/null | tr '\n' '|')
+    fi
+    if [ -n "$fingerprint" ]; then
+      cached_fp=""
+      [ -f "$subagent_cache" ] && cached_fp=$(head -1 "$subagent_cache")
+      if [ "$fingerprint" = "$cached_fp" ]; then
+        subagent_tokens=$(tail -1 "$subagent_cache")
+      else
+        subagent_tokens=$(cat "$subagent_dir"/agent-*.jsonl 2>/dev/null \
+          | jq -r 'select(.type == "assistant") | "\(.message.id) \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0)"' 2>/dev/null \
+          | awk '{usage[$1]=$2" "$3} END {for(id in usage){split(usage[id],a);s+=a[1]+a[2]} print s+0}')
+        subagent_tokens=${subagent_tokens:-0}
+        printf '%s\n%s\n' "$fingerprint" "$subagent_tokens" > "$subagent_cache"
+      fi
+    fi
+  fi
+fi
+subagent_tokens=${subagent_tokens:-0}
+[ "$subagent_tokens" -gt 0 ] 2>/dev/null && total_tokens=$((total_tokens + subagent_tokens))
+
 if [ "$duration_ms" -gt 0 ]; then
   tpm=$(( (total_tokens * 60000) / duration_ms ))
 else
