@@ -25,6 +25,13 @@ cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
 used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
 
+# Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
+# Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
+case "$model" in
+  unknown) ;;
+  *) echo "$model" | grep -qE '^[A-Z][a-z]+ [0-9]+\.[0-9]+$' || model="unknown" ;;
+esac
+
 # Session-scoped state key (used by model cache and sliding window TPM)
 safe_id=$(printf '%s' "$session_id" | tr -dc 'a-zA-Z0-9_-')
 
