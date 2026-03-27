@@ -17,7 +17,7 @@ load 'helpers'
 @test "tpm: shows raw number below 1k" {
   # 500 in + 0 out in 60s = 500 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 500 0
-  [[ "$(plain)" == *"⚡︎500 tpm"* ]]
+  [[ "$(plain)" == *"ϟ 500 tpm"* ]]
 }
 
 @test "tpm: shows N.Nk for 1000-9999" {
@@ -38,34 +38,34 @@ load 'helpers'
   # 500 tpm -> plain bolt
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 500 0
   # Should NOT have any color code immediately before the bolt
-  [[ "$output" != *$'\033[93m'"⚡︎"* ]]
-  [[ "$output" != *$'\033[38;5;209m'"⚡︎"* ]]
-  [[ "$output" != *$'\033[91m'"⚡︎"* ]]
-  [[ "$output" != *$'\033[38;5;57m'"⚡︎"* ]]
+  [[ "$output" != *$'\033[93m'"ϟ"* ]]
+  [[ "$output" != *$'\033[38;5;209m'"ϟ"* ]]
+  [[ "$output" != *$'\033[91m'"ϟ"* ]]
+  [[ "$output" != *$'\033[38;5;57m'"ϟ"* ]]
 }
 
 @test "bolt: yellow at 1000 tpm" {
   # 1000 tokens in 60s = 1000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 600 400
-  [[ "$output" == *$'\033[93m'"⚡︎"* ]]
+  [[ "$output" == *$'\033[93m'"ϟ"* ]]
 }
 
 @test "bolt: orange at 5000 tpm" {
   # 5000 tokens in 60s = 5000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 3000 2000
-  [[ "$output" == *$'\033[38;5;209m'"⚡︎"* ]]
+  [[ "$output" == *$'\033[38;5;209m'"ϟ"* ]]
 }
 
 @test "bolt: red at 10000 tpm" {
   # 10000 tokens in 60s = 10000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 6000 4000
-  [[ "$output" == *$'\033[91m'"⚡︎"* ]]
+  [[ "$output" == *$'\033[91m'"ϟ"* ]]
 }
 
 @test "bolt: violet at 20000 tpm" {
   # 20000 tokens in 60s = 20000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 12000 8000
-  [[ "$output" == *$'\033[38;5;57m'"⚡︎"* ]]
+  [[ "$output" == *$'\033[38;5;57m'"ϟ"* ]]
 }
 
 # ─── TPM sliding window ───
