@@ -1,10 +1,33 @@
 #!/bin/sh
-# Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
+# Line 1: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
+# Line 2: 5h N% XhYm  7d N% XdYh   (shown when on pace / ≥75%)
 
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
 TPM_WINDOW_MS=300000  # 5 minutes
 MODEL_STATE_PREFIX="claude-code-statusline-model"
 SUBAGENT_STATE_PREFIX="claude-code-statusline-subagent"
+USAGE_STATE_PREFIX="claude-code-statusline-usage"
+
+# Helpers for rate limit display
+fmt_countdown() {
+  if [ "$1" -ge 86400 ] 2>/dev/null; then
+    printf '%dd %dh' "$(($1 / 86400))" "$(($1 % 86400 / 3600))"
+  elif [ "$1" -ge 3600 ] 2>/dev/null; then
+    printf '%dh %dm' "$(($1 / 3600))" "$(($1 % 3600 / 60))"
+  elif [ "$1" -ge 60 ] 2>/dev/null; then
+    printf '%dm' "$(($1 / 60))"
+  else
+    printf '%ds' "$1"
+  fi
+}
+
+usage_color() {
+  if [ "$1" -ge 90 ] 2>/dev/null; then printf '%s' '\033[91m'
+  elif [ "$1" -ge 75 ] 2>/dev/null; then printf '%s' '\033[38;5;208m'
+  elif [ "$1" -ge 50 ] 2>/dev/null; then printf '%s' '\033[93m'
+  else printf '%s' '\033[38;5;247m'
+  fi
+}
 
 input=$(cat)
 
@@ -17,13 +40,23 @@ eval "$(echo "$input" | jq -r '
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
   "total_out=\(.context_window.total_output_tokens // 0 | floor | @sh)",
-  "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)"
+  "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)",
+  "rl_5h_pct=\(.rate_limits.five_hour.used_percentage // "" | if type == "number" then floor else . end | @sh)",
+  "rl_5h_reset=\(.rate_limits.five_hour.resets_at // "" | @sh)",
+  "rl_7d_pct=\(.rate_limits.seven_day.used_percentage // "" | if type == "number" then floor else . end | @sh)",
+  "rl_7d_reset=\(.rate_limits.seven_day.resets_at // "" | @sh)"
 ')"
 
 # Defaults if jq fails or fields are missing
 cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
 used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
+rl_5h_pct=${rl_5h_pct:-}; rl_5h_reset=${rl_5h_reset:-}
+rl_7d_pct=${rl_7d_pct:-}; rl_7d_reset=${rl_7d_reset:-}
+
+# Validate resets_at fields are numeric
+case "$rl_5h_reset" in *[!0-9]*) rl_5h_reset="" ;; esac
+case "$rl_7d_reset" in *[!0-9]*) rl_7d_reset="" ;; esac
 
 # Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
 # Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
@@ -245,6 +278,68 @@ if [ -n "$cwd" ]; then
   fi
 fi
 
+# Rate limit visibility (each window shown independently)
+show_5h=0
+show_7d=0
+rl_5h_pct_int=0
+rl_7d_pct_int=0
+remaining_5h=0
+remaining_7d=0
+
+if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
+  now=$(date +%s)
+
+  # First invocation of this session?
+  first_usage=0
+  if [ -n "$safe_id" ]; then
+    usage_state="/tmp/${USAGE_STATE_PREFIX}-${safe_id}"
+    if [ ! -f "$usage_state" ]; then
+      first_usage=1
+      : > "$usage_state"
+    fi
+  fi
+
+  # 5h window (18000s total)
+  if [ -n "$rl_5h_pct" ] && [ -n "$rl_5h_reset" ]; then
+    rl_5h_pct_int=${rl_5h_pct%%.*}
+    rl_5h_pct_int=${rl_5h_pct_int:-0}
+    remaining_5h=$((rl_5h_reset - now))
+    [ "$remaining_5h" -lt 0 ] 2>/dev/null && remaining_5h=0
+
+    if [ "$first_usage" -eq 1 ] || [ "$rl_5h_pct_int" -ge 75 ]; then
+      show_5h=1
+    else
+      elapsed_5h=$((18000 - remaining_5h))
+      if [ "$elapsed_5h" -le 0 ]; then
+        show_5h=1  # window just started
+      elif [ "$((rl_5h_pct_int * 18000))" -ge "$((100 * elapsed_5h))" ]; then
+        show_5h=1  # on pace to hit limit
+      fi
+    fi
+  fi
+
+  # 7d window (604800s total)
+  if [ -n "$rl_7d_pct" ] && [ -n "$rl_7d_reset" ]; then
+    rl_7d_pct_int=${rl_7d_pct%%.*}
+    rl_7d_pct_int=${rl_7d_pct_int:-0}
+    remaining_7d=$((rl_7d_reset - now))
+    [ "$remaining_7d" -lt 0 ] 2>/dev/null && remaining_7d=0
+
+    if [ "$first_usage" -eq 1 ] || [ "$rl_7d_pct_int" -ge 75 ]; then
+      show_7d=1
+    else
+      elapsed_7d=$((604800 - remaining_7d))
+      if [ "$elapsed_7d" -le 0 ]; then
+        show_7d=1
+      elif [ "$((rl_7d_pct_int * 604800))" -ge "$((100 * elapsed_7d))" ]; then
+        show_7d=1
+      fi
+    fi
+  fi
+fi
+
+# ─── Line 1: branch, diff, model, context, tpm ───
+
 printf "\033[36m⌥ %s${reset}" "$branch"
 printf "%b" "$diff_stat"
 printf "${sep}\033[38;5;252m✦ %s${reset}" "$model"
@@ -270,3 +365,25 @@ if [ "$tpm" -gt 0 ]; then
   fi
   printf "${sep}${dim}${bolt} %s tpm${reset}" "$tpm_display"
 fi
+
+# ─── Line 2: rate limit usage ───
+
+if [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; then
+  printf '\n'
+  line2_started=0
+
+  if [ "$show_5h" -eq 1 ]; then
+    rl_5h_color=$(usage_color "$rl_5h_pct_int")
+    countdown_5h=$(fmt_countdown "$remaining_5h")
+    printf "${rl_5h_color}5h %s%%${reset} \033[2;38;5;246m%s${reset}" "$rl_5h_pct_int" "$countdown_5h"
+    line2_started=1
+  fi
+
+  if [ "$show_7d" -eq 1 ]; then
+    [ "$line2_started" -eq 1 ] && printf "$sep"
+    rl_7d_color=$(usage_color "$rl_7d_pct_int")
+    countdown_7d=$(fmt_countdown "$remaining_7d")
+    printf "${rl_7d_color}7d %s%%${reset} \033[2;38;5;246m%s${reset}" "$rl_7d_pct_int" "$countdown_7d"
+  fi
+fi
+

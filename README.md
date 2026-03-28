@@ -4,7 +4,7 @@
 [![POSIX shell](https://img.shields.io/badge/Shell-POSIX-green.svg)](statusline.sh)
 [![macOS / Linux](https://img.shields.io/badge/macOS_|_Linux-compatible-lightgrey.svg)]()
 
-A minimal Claude Code statusline with context usage, branch, model, and diff info. Built for Max subscribers who don't hit their session limits.
+A minimal Claude Code statusline showing branch, diff, model, context, throughput, and rate limit usage.
 
 <img width="685" height="100" alt="Screenshot" src="https://github.com/user-attachments/assets/5ce0a134-6b07-4754-8b9c-dca3e8fc6574" />
 
@@ -16,15 +16,16 @@ A minimal Claude Code statusline with context usage, branch, model, and diff inf
 - **Terminal-first** – plain text symbols, no emojis
 
 
-## Indicators
+## What it shows
 
-| Indicator | Example | Why |
-|-----------|---------|-----|
-| Branch | `⌥ main` | Active branch |
-| Diff | `+42 -7` | Commit before new work |
-| Model | `✦ Opus 4.6` | Active model |
-| Context | `▓▓░░░ 43%` | Stay under 50% for best results |
-| Throughput | `ϟ 1.2k tpm` | How fast you're going |
+- **Branch** – current git branch
+- **Diff** – uncommitted additions and deletions
+- **Model** – active Claude model
+- **Context** – usage bar and percentage. Grey under 35%, yellow-green under 50%, yellow under 75%, orange above. Start a new conversation before 50% for best results
+- **Throughput** – tokens per minute. Grey under 1k, yellow at 1k, orange at 5k, red at 10k, violet at 20k
+- **Rate limits** – 5-hour and weekly usage with countdown. Grey under 50%, yellow at 50%, orange at 75%, red at 90%. Shown on first use of each session, when on pace to hit the limit, and when over 75%. If hidden, you're within a comfortable pace
+
+Indicators without data are hidden rather than shown empty.
 
 
 ## Install
@@ -53,22 +54,20 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 
 ## Requirements
 
-- [`jq`](https://jqlang.github.io/jq/) — JSON parsing
-- `git` — branch and diff information
+- [`jq`](https://jqlang.github.io/jq/) – JSON parsing
+- `git` – branch and diff information
 
 `brew install jq git` or `apt install jq git`
 
 
 ## Notes
 
-- Context bar color shifts from grey to yellow-green to yellow to orange as usage increases
-- Tokens per minute bolt gains color as you speed up
 - Tracks text diffs, untracked files, and binary file changes (binary files count as +1 added or -1 removed)
-- TPM uses a 5-minute sliding window and includes subagent token usage
-- Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 - Caps line counting at 10k to avoid slowdowns on large diffs
-- Works in empty repos, detached HEAD, and normal branches
+- TPM uses a 5-minute sliding window and includes subagent token usage
+- Shows short SHA on detached HEAD; falls back to symbolic ref in empty repos
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
+- Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 - Validates model names to filter garbled input from Claude Code
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+### Added
+
+- Rate limit usage tracking for 5-hour and 7-day windows, shown on a second line
+  - Smart visibility: shown on first session invocation, when on pace to hit the limit, or when usage exceeds 75%
+  - Color-coded usage tiers (dim/yellow/orange/red) with rounded countdown to reset
+
 ## 1.2.0
 
 ### Added

@@ -21,10 +21,12 @@ cleanup_state() {
   rm -f "/tmp/claude-code-statusline-model-${sid}"
   rm -f "/tmp/claude-code-statusline-tpm-${sid}"
   rm -f "/tmp/claude-code-statusline-subagent-${sid}"
+  rm -f "/tmp/claude-code-statusline-usage-${sid}"
 }
 
 # Build JSON input using jq for proper escaping
 # Args: model used session_id duration_ms total_in total_out cwd transcript_path
+#       [rl_5h_pct rl_5h_reset rl_7d_pct rl_7d_reset]
 make_json() {
   local model="${1:-Opus 4.6}"
   local used="${2:-25}"
@@ -34,7 +36,12 @@ make_json() {
   local total_out="${6:-3000}"
   local cwd="${7:-}"
   local transcript_path="${8:-}"
-  jq -n \
+  local rl_5h_pct="${9:-}"
+  local rl_5h_reset="${10:-}"
+  local rl_7d_pct="${11:-}"
+  local rl_7d_reset="${12:-}"
+  local base
+  base=$(jq -n \
     --arg cwd "$cwd" \
     --arg sid "$session_id" \
     --arg tp "$transcript_path" \
@@ -50,7 +57,22 @@ make_json() {
       context_window: { used_percentage: $used, total_input_tokens: $tin, total_output_tokens: $tout },
       model: { display_name: $model },
       cost: { total_duration_ms: $dur }
-    }'
+    }')
+  if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
+    local rl_args=()
+    local rl_filter="."
+    if [ -n "$rl_5h_pct" ] && [ -n "$rl_5h_reset" ]; then
+      rl_args+=(--argjson rl5p "$rl_5h_pct" --argjson rl5r "$rl_5h_reset")
+      rl_filter="$rl_filter | .rate_limits.five_hour = {used_percentage: \$rl5p, resets_at: \$rl5r}"
+    fi
+    if [ -n "$rl_7d_pct" ] && [ -n "$rl_7d_reset" ]; then
+      rl_args+=(--argjson rl7p "$rl_7d_pct" --argjson rl7r "$rl_7d_reset")
+      rl_filter="$rl_filter | .rate_limits.seven_day = {used_percentage: \$rl7p, resets_at: \$rl7r}"
+    fi
+    echo "$base" | jq "${rl_args[@]}" "$rl_filter"
+  else
+    echo "$base"
+  fi
 }
 
 # Run the script, capturing output for assertions via `run`
