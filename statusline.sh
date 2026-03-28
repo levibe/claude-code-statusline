@@ -1,5 +1,5 @@
 #!/bin/sh
-# Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ⚡N tpm
+# Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
 
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
 TPM_WINDOW_MS=300000  # 5 minutes
@@ -258,15 +258,15 @@ if [ "$tpm" -gt 0 ]; then
     tpm_display="$tpm"
   fi
   if [ "$tpm" -ge 20000 ]; then
-    bolt="\033[38;5;57m⚡${dim}"   # deep violet
+    bolt="\033[38;5;57mϟ${dim}"   # deep violet
   elif [ "$tpm" -ge 10000 ]; then
-    bolt="\033[91m⚡${dim}"        # red
+    bolt="\033[91mϟ${dim}"        # red
   elif [ "$tpm" -ge 5000 ]; then
-    bolt="\033[38;5;209m⚡${dim}"  # orange
+    bolt="\033[38;5;209mϟ${dim}"  # orange
   elif [ "$tpm" -ge 1000 ]; then
-    bolt="\033[93m⚡${dim}"        # yellow
+    bolt="\033[93mϟ${dim}"        # yellow
   else
-    bolt="⚡"
+    bolt="ϟ"
   fi
-  printf "${sep}${dim}${bolt}%s tpm${reset}" "$tpm_display"
+  printf "${sep}${dim}${bolt} %s tpm${reset}" "$tpm_display"
 fi
