@@ -418,7 +418,7 @@ if [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; then
     rl_5h_color=$(usage_color "$rl_5h_pct_int")
     rl_5h_vcolor=$(usage_value_color "$rl_5h_pct_int")
     countdown_5h=$(fmt_countdown "$remaining_5h")
-    printf "${rl_5h_color}5h ${rl_5h_vcolor}%s%%${reset} \033[2;38;5;246m%s${reset}" "$rl_5h_pct_int" "$countdown_5h"
+    printf "${rl_5h_color}5h ${rl_5h_vcolor}%s%%${reset} \033[2;38;5;249m%s${reset}" "$rl_5h_pct_int" "$countdown_5h"
   fi
 
   if [ "$show_7d" -eq 1 ]; then
@@ -426,7 +426,7 @@ if [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; then
     rl_7d_color=$(usage_color "$rl_7d_pct_int")
     rl_7d_vcolor=$(usage_value_color "$rl_7d_pct_int")
     countdown_7d=$(fmt_countdown "$remaining_7d")
-    printf "${rl_7d_color}7d ${rl_7d_vcolor}%s%%${reset} \033[2;38;5;246m%s${reset}" "$rl_7d_pct_int" "$countdown_7d"
+    printf "${rl_7d_color}7d ${rl_7d_vcolor}%s%%${reset} \033[2;38;5;249m%s${reset}" "$rl_7d_pct_int" "$countdown_7d"
   fi
 fi
 
