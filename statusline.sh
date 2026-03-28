@@ -334,13 +334,16 @@ if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
   _now=$(date +%s)
 
   # First invocation of this session (show for USAGE_FIRST_WINDOW_S seconds)?
+  # State file creation is deferred until a window actually renders, so partial
+  # data (e.g. pct without reset) does not burn the first-usage grace period.
   first_usage=0
+  usage_state_exists=0
   if [ -n "$safe_id" ]; then
     usage_state="/tmp/${USAGE_STATE_PREFIX}-${safe_id}"
     if [ ! -f "$usage_state" ]; then
-      printf '%s\n' "$_now" > "$usage_state"
       first_usage=1
     else
+      usage_state_exists=1
       usage_created=$(head -1 "$usage_state" 2>/dev/null)
       case "$usage_created" in *[!0-9]*|"") usage_created="" ;; esac
       if [ -n "$usage_created" ] && [ "$((_now - usage_created))" -lt "$USAGE_FIRST_WINDOW_S" ] 2>/dev/null; then
@@ -369,6 +372,12 @@ if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
       rl_7d_pct_int=$(echo "$result_7d" | sed -n '1p')
       remaining_7d=$(echo "$result_7d" | sed -n '2p')
     fi
+  fi
+
+  # Create state file only once a window has actually rendered
+  if [ "$usage_state_exists" -eq 0 ] && [ -n "$safe_id" ] \
+     && { [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; }; then
+    printf '%s\n' "$_now" > "$usage_state"
   fi
 fi
 

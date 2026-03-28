@@ -58,16 +58,18 @@ make_json() {
       model: { display_name: $model },
       cost: { total_duration_ms: $dur }
     }')
-  if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
+  if [ -n "$rl_5h_pct" ] || [ -n "$rl_5h_reset" ] || [ -n "$rl_7d_pct" ] || [ -n "$rl_7d_reset" ]; then
     local rl_args=()
     local rl_filter="."
-    if [ -n "$rl_5h_pct" ] && [ -n "$rl_5h_reset" ]; then
-      rl_args+=(--argjson rl5p "$rl_5h_pct" --argjson rl5r "$rl_5h_reset")
-      rl_filter="$rl_filter | .rate_limits.five_hour = {used_percentage: \$rl5p, resets_at: \$rl5r}"
+    if [ -n "$rl_5h_pct" ] || [ -n "$rl_5h_reset" ]; then
+      rl_filter="$rl_filter | .rate_limits.five_hour = {}"
+      [ -n "$rl_5h_pct" ] && rl_args+=(--argjson rl5p "$rl_5h_pct") && rl_filter="$rl_filter | .rate_limits.five_hour.used_percentage = \$rl5p"
+      [ -n "$rl_5h_reset" ] && rl_args+=(--argjson rl5r "$rl_5h_reset") && rl_filter="$rl_filter | .rate_limits.five_hour.resets_at = \$rl5r"
     fi
-    if [ -n "$rl_7d_pct" ] && [ -n "$rl_7d_reset" ]; then
-      rl_args+=(--argjson rl7p "$rl_7d_pct" --argjson rl7r "$rl_7d_reset")
-      rl_filter="$rl_filter | .rate_limits.seven_day = {used_percentage: \$rl7p, resets_at: \$rl7r}"
+    if [ -n "$rl_7d_pct" ] || [ -n "$rl_7d_reset" ]; then
+      rl_filter="$rl_filter | .rate_limits.seven_day = {}"
+      [ -n "$rl_7d_pct" ] && rl_args+=(--argjson rl7p "$rl_7d_pct") && rl_filter="$rl_filter | .rate_limits.seven_day.used_percentage = \$rl7p"
+      [ -n "$rl_7d_reset" ] && rl_args+=(--argjson rl7r "$rl_7d_reset") && rl_filter="$rl_filter | .rate_limits.seven_day.resets_at = \$rl7r"
     fi
     echo "$base" | jq "${rl_args[@]}" "$rl_filter"
   else

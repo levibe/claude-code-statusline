@@ -271,6 +271,28 @@ load 'helpers'
   [[ "$(plain)" != *"5h "* ]]
 }
 
+@test "usage: partial data (pct without reset) does not burn first-usage window" {
+  now=$(date +%s)
+  reset=$((now + 9000))
+  # First invocation: 5h has pct but no reset -> cannot render, should not create state file
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "" "" ""
+  [[ ! -f "/tmp/claude-code-statusline-usage-${TEST_SID}" ]]
+  # Second invocation: complete data arrives, first-usage still active -> shown
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [[ "$(plain)" == *"5h 30%"* ]]
+}
+
+@test "usage: partial data (reset without pct) does not burn first-usage window" {
+  now=$(date +%s)
+  reset=$((now + 9000))
+  # First invocation: 5h has reset but no pct -> cannot render
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "$reset" "" ""
+  [[ ! -f "/tmp/claude-code-statusline-usage-${TEST_SID}" ]]
+  # Second invocation: complete data -> first-usage still active
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [[ "$(plain)" == *"5h 30%"* ]]
+}
+
 @test "usage: empty state file from old version treated as window expired" {
   now=$(date +%s)
   reset=$((now + 9000))
