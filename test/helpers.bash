@@ -98,3 +98,8 @@ cached_model() {
 cached_duration() {
   tail -1 "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
 }
+
+# Expire the first-usage display window for a session
+expire_first_usage() {
+  printf '%s\n' "0" > "/tmp/claude-code-statusline-usage-${1:-$TEST_SID}"
+}
