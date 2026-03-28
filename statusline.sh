@@ -36,6 +36,43 @@ usage_value_color() {
   fi
 }
 
+# should_show_window pct_raw reset_at window_seconds first_usage
+# Prints two lines (pct_int, remaining) if the window should be shown,
+# or nothing (empty output) otherwise.  Uses _now from caller scope.
+should_show_window() {
+  _pct=$1; _reset=$2; _window=$3; _first=$4
+  _pct_int=${_pct%%.*}
+  _pct_int=${_pct_int:-0}
+  _remaining=$((_reset - _now))
+  [ "$_remaining" -lt 0 ] 2>/dev/null && _remaining=0
+
+  case "$_pct" in
+    *.*)
+      _i=${_pct%%.*}; _f=${_pct#*.}; _d=${_f%"${_f#?}"}
+      _pct_x10=$(( (${_i:-0} * 10) + ${_d:-0} ))
+      ;;
+    *)
+      _pct_x10=$(( ${_pct:-0} * 10 ))
+      ;;
+  esac
+
+  _show=0
+  if [ "$_first" -eq 1 ] || [ "$_pct_int" -ge 75 ]; then
+    _show=1
+  else
+    _elapsed=$((_window - _remaining))
+    if [ "$_elapsed" -le 0 ]; then
+      _show=1
+    elif [ "$((_pct_x10 * _window))" -ge "$((1000 * _elapsed))" ]; then
+      _show=1
+    fi
+  fi
+
+  if [ "$_show" -eq 1 ]; then
+    printf '%s\n%s\n' "$_pct_int" "$_remaining"
+  fi
+}
+
 input=$(cat)
 
 # Single jq call to extract all fields (floor handles potential floats)
@@ -48,9 +85,9 @@ eval "$(echo "$input" | jq -r '
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
   "total_out=\(.context_window.total_output_tokens // 0 | floor | @sh)",
   "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)",
-  "rl_5h_pct=\(.rate_limits.five_hour.used_percentage // "" | if type == "number" then floor else . end | @sh)",
+  "rl_5h_pct=\(.rate_limits.five_hour.used_percentage // "" | @sh)",
   "rl_5h_reset=\(.rate_limits.five_hour.resets_at // "" | @sh)",
-  "rl_7d_pct=\(.rate_limits.seven_day.used_percentage // "" | if type == "number" then floor else . end | @sh)",
+  "rl_7d_pct=\(.rate_limits.seven_day.used_percentage // "" | @sh)",
   "rl_7d_reset=\(.rate_limits.seven_day.resets_at // "" | @sh)"
 ')"
 
@@ -62,8 +99,8 @@ rl_5h_pct=${rl_5h_pct:-}; rl_5h_reset=${rl_5h_reset:-}
 rl_7d_pct=${rl_7d_pct:-}; rl_7d_reset=${rl_7d_reset:-}
 
 # Validate resets_at fields are numeric
-case "$rl_5h_reset" in *[!0-9]*) rl_5h_reset="" ;; esac
-case "$rl_7d_reset" in *[!0-9]*) rl_7d_reset="" ;; esac
+case "$rl_5h_reset" in ""|*[!0-9]*) rl_5h_reset="" ;; esac
+case "$rl_7d_reset" in ""|*[!0-9]*) rl_7d_reset="" ;; esac
 
 # Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
 # Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
@@ -294,19 +331,19 @@ remaining_5h=0
 remaining_7d=0
 
 if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
-  now=$(date +%s)
+  _now=$(date +%s)
 
   # First invocation of this session (show for USAGE_FIRST_WINDOW_S seconds)?
   first_usage=0
   if [ -n "$safe_id" ]; then
     usage_state="/tmp/${USAGE_STATE_PREFIX}-${safe_id}"
     if [ ! -f "$usage_state" ]; then
-      printf '%s\n' "$now" > "$usage_state"
+      printf '%s\n' "$_now" > "$usage_state"
       first_usage=1
     else
       usage_created=$(head -1 "$usage_state" 2>/dev/null)
       case "$usage_created" in *[!0-9]*|"") usage_created="" ;; esac
-      if [ -n "$usage_created" ] && [ "$((now - usage_created))" -lt "$USAGE_FIRST_WINDOW_S" ] 2>/dev/null; then
+      if [ -n "$usage_created" ] && [ "$((_now - usage_created))" -lt "$USAGE_FIRST_WINDOW_S" ] 2>/dev/null; then
         first_usage=1
       fi
     fi
@@ -316,61 +353,21 @@ if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
 
   # 5h window (18000s total)
   if [ -n "$rl_5h_pct" ] && [ -n "$rl_5h_reset" ]; then
-    rl_5h_pct_int=${rl_5h_pct%%.*}
-    rl_5h_pct_int=${rl_5h_pct_int:-0}
-    remaining_5h=$((rl_5h_reset - now))
-    [ "$remaining_5h" -lt 0 ] 2>/dev/null && remaining_5h=0
-
-    # Scale percentage x10 for precise pace comparison (e.g., 49.9 -> 499)
-    case "$rl_5h_pct" in
-      *.*)
-        _i=${rl_5h_pct%%.*}; _f=${rl_5h_pct#*.}; _d=${_f%"${_f#?}"}
-        rl_5h_pct_x10=$(( (${_i:-0} * 10) + ${_d:-0} ))
-        ;;
-      *)
-        rl_5h_pct_x10=$(( ${rl_5h_pct:-0} * 10 ))
-        ;;
-    esac
-
-    if [ "$first_usage" -eq 1 ] || [ "$rl_5h_pct_int" -ge 75 ]; then
+    result_5h=$(should_show_window "$rl_5h_pct" "$rl_5h_reset" 18000 "$first_usage")
+    if [ -n "$result_5h" ]; then
       show_5h=1
-    else
-      elapsed_5h=$((18000 - remaining_5h))
-      if [ "$elapsed_5h" -le 0 ]; then
-        show_5h=1  # window just started
-      elif [ "$((rl_5h_pct_x10 * 18000))" -ge "$((1000 * elapsed_5h))" ]; then
-        show_5h=1  # on pace to hit limit
-      fi
+      rl_5h_pct_int=$(echo "$result_5h" | sed -n '1p')
+      remaining_5h=$(echo "$result_5h" | sed -n '2p')
     fi
   fi
 
   # 7d window (604800s total)
   if [ -n "$rl_7d_pct" ] && [ -n "$rl_7d_reset" ]; then
-    rl_7d_pct_int=${rl_7d_pct%%.*}
-    rl_7d_pct_int=${rl_7d_pct_int:-0}
-    remaining_7d=$((rl_7d_reset - now))
-    [ "$remaining_7d" -lt 0 ] 2>/dev/null && remaining_7d=0
-
-    # Scale percentage x10 for precise pace comparison
-    case "$rl_7d_pct" in
-      *.*)
-        _i=${rl_7d_pct%%.*}; _f=${rl_7d_pct#*.}; _d=${_f%"${_f#?}"}
-        rl_7d_pct_x10=$(( (${_i:-0} * 10) + ${_d:-0} ))
-        ;;
-      *)
-        rl_7d_pct_x10=$(( ${rl_7d_pct:-0} * 10 ))
-        ;;
-    esac
-
-    if [ "$first_usage" -eq 1 ] || [ "$rl_7d_pct_int" -ge 75 ]; then
+    result_7d=$(should_show_window "$rl_7d_pct" "$rl_7d_reset" 604800 "$first_usage")
+    if [ -n "$result_7d" ]; then
       show_7d=1
-    else
-      elapsed_7d=$((604800 - remaining_7d))
-      if [ "$elapsed_7d" -le 0 ]; then
-        show_7d=1
-      elif [ "$((rl_7d_pct_x10 * 604800))" -ge "$((1000 * elapsed_7d))" ]; then
-        show_7d=1
-      fi
+      rl_7d_pct_int=$(echo "$result_7d" | sed -n '1p')
+      remaining_7d=$(echo "$result_7d" | sed -n '2p')
     fi
   fi
 fi
@@ -407,18 +404,16 @@ fi
 
 if [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; then
   printf '\n'
-  line2_started=0
 
   if [ "$show_5h" -eq 1 ]; then
     rl_5h_color=$(usage_color "$rl_5h_pct_int")
     rl_5h_vcolor=$(usage_value_color "$rl_5h_pct_int")
     countdown_5h=$(fmt_countdown "$remaining_5h")
     printf "${rl_5h_color}5h ${rl_5h_vcolor}%s%%${reset} \033[2;38;5;246m%s${reset}" "$rl_5h_pct_int" "$countdown_5h"
-    line2_started=1
   fi
 
   if [ "$show_7d" -eq 1 ]; then
-    [ "$line2_started" -eq 1 ] && printf "$sep"
+    [ "$show_5h" -eq 1 ] && printf "$sep"
     rl_7d_color=$(usage_color "$rl_7d_pct_int")
     rl_7d_vcolor=$(usage_value_color "$rl_7d_pct_int")
     countdown_7d=$(fmt_countdown "$remaining_7d")

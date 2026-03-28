@@ -233,6 +233,44 @@ load 'helpers'
   [[ "$(plain)" != *"5h "* ]]
 }
 
+@test "usage: 100% usage displayed correctly" {
+  now=$(date +%s)
+  reset=$((now + 60))
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 100 "$reset" "" ""
+  [[ "$(plain)" == *"5h 100%"* ]]
+}
+
+@test "usage: pace check uses decimal precision (49.9% over pace, 49% would not be)" {
+  now=$(date +%s)
+  # 5h window = 18000s. At 49.9% with 8950s remaining (elapsed = 9050s):
+  # Pace threshold = elapsed/window = 9050/18000 = 50.3%
+  # 49.9% < 50.3% -> under pace (should be hidden)
+  # But at 49% -> 49% < 50.3% -> also under pace
+  # Use elapsed = 8990s (remaining = 9010s) -> threshold = 8990/18000 = 49.94%
+  # 49.9% >= 49.94%? No (barely under). Use elapsed = 9000s -> threshold = 50%
+  # 49.9% < 50% -> under pace. 49% < 50% -> also under.
+  # Use elapsed = 9010s (remaining = 8990s) -> threshold = 9010/18000 = 50.06%
+  # Need: 49.9% over pace but 49% not. threshold must be between 49% and 49.9%.
+  # threshold = elapsed/18000 -> elapsed = 18000 * 0.495 = 8910 -> remaining = 9090
+  # 49.9% >= 49.5% -> over pace (shown). 49% >= 49.5%? No -> under pace (hidden).
+  reset=$((now + 9090))
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49.9 "$reset" "" ""
+  expire_first_usage
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49.9 "$reset" "" ""
+  [[ "$(plain)" == *"5h 49%"* ]]
+}
+
+@test "usage: pace check at 49% (integer) hidden at same elapsed where 49.9% shows" {
+  now=$(date +%s)
+  # Same elapsed as above: remaining = 9090, threshold = 49.5%
+  # 49% < 49.5% -> under pace -> hidden
+  reset=$((now + 9090))
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49 "$reset" "" ""
+  expire_first_usage
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49 "$reset" "" ""
+  [[ "$(plain)" != *"5h "* ]]
+}
+
 @test "usage: empty state file from old version treated as window expired" {
   now=$(date +%s)
   reset=$((now + 9000))
