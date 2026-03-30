@@ -385,9 +385,12 @@ fi
 
 # ─── Line 1: branch, diff, model, context, tpm ───
 
-printf "\033[36m⌥ %s${reset}" "$branch"
-printf "%b" "$diff_stat"
-printf "${sep}\033[38;5;252m✦ %s${reset}" "$model"
+if [ -n "$branch" ]; then
+  printf "\033[36m⌥ %s${reset}" "$branch"
+  printf "%b" "$diff_stat"
+  printf "%s" "$sep"
+fi
+printf "\033[38;5;252m✦ %s${reset}" "$model"
 printf "${sep}${ctx_color}%s %s%%${reset}" "$bar" "$used"
 if [ "$tpm" -gt 0 ]; then
   if [ "$tpm" -ge 10000 ]; then

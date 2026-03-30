@@ -55,3 +55,10 @@ load 'helpers'
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "$TEST_GIT_REPO"
   [[ "$(plain)" == *"⌥ main"* ]]
 }
+
+@test "git: no branch indicator outside git repo" {
+  TEST_GIT_REPO=$(mktemp -d)
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "$TEST_GIT_REPO"
+  [[ "$(plain)" != *"⌥"* ]]
+  [[ "$(plain)" == *"✦ Opus 4.6"* ]]
+}
