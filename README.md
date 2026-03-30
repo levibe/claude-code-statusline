@@ -21,9 +21,9 @@ A minimal Claude Code statusline showing branch, diff, model, context, throughpu
 - **Branch** – current git branch
 - **Diff** – uncommitted additions and deletions
 - **Model** – active Claude model
-- **Context** – usage bar and percentage. Grey under 35%, yellow-green under 50%, yellow under 75%, orange above. Start a new conversation before 50% for best results
-- **Throughput** – tokens per minute. Grey under 1k, yellow at 1k, orange at 5k, red at 10k, violet at 20k
-- **Rate limits** – 5-hour and weekly usage with countdown. Grey under 50%, yellow at 50%, orange at 75%, red at 90%. Shown on first use of each session, when on pace to hit the limit, and when over 75%. If hidden, you're within a comfortable pace
+- **Context** – usage bar and percentage. Grey under 35%, yellow-green under 50%, yellow under 75%, orange above. Start a new conversation before 50% for best results.
+- **Throughput** – tokens per minute. Grey under 1k, yellow at 1k, orange at 5k, red at 10k, violet at 20k.
+- **Rate limits** – 5-hour and weekly usage with countdown. Grey under 50%, yellow at 50%, orange at 75%, red at 90%. Shown on first use of each session, when on pace to hit the limit, and at 75%. If hidden, you're within a comfortable pace.
 
 Indicators without data are hidden rather than shown empty.
 
