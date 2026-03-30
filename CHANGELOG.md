@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+### Changed
+
+- Display decimal precision for TPM values between 10k and 100k (e.g., "12.3k" instead of "12k")
+
 ## 1.3.1
 
 ### Fixed
