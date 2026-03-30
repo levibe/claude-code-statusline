@@ -1,10 +1,77 @@
 #!/bin/sh
-# Status line: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
+# Line 1: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
+# Line 2: 5h N% XhYm  7d N% XdYh   (shown when on pace / ≥75%)
 
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
 TPM_WINDOW_MS=300000  # 5 minutes
 MODEL_STATE_PREFIX="claude-code-statusline-model"
 SUBAGENT_STATE_PREFIX="claude-code-statusline-subagent"
+USAGE_STATE_PREFIX="claude-code-statusline-usage"
+USAGE_FIRST_WINDOW_S=5   # seconds to show rate limits on first invocation
+
+# Helpers for rate limit display
+fmt_countdown() {
+  if [ "$1" -ge 86400 ] 2>/dev/null; then
+    printf '%dd %dh' "$(($1 / 86400))" "$(($1 % 86400 / 3600))"
+  elif [ "$1" -ge 3600 ] 2>/dev/null; then
+    printf '%dh %dm' "$(($1 / 3600))" "$(($1 % 3600 / 60))"
+  elif [ "$1" -ge 60 ] 2>/dev/null; then
+    printf '%dm' "$(($1 / 60))"
+  else
+    printf '%ds' "$1"
+  fi
+}
+
+usage_color() {
+  if [ "$1" -ge 90 ] 2>/dev/null; then printf '%s' '\033[91m'
+  elif [ "$1" -ge 75 ] 2>/dev/null; then printf '%s' '\033[38;5;208m'
+  elif [ "$1" -ge 50 ] 2>/dev/null; then printf '%s' '\033[93m'
+  else printf '%s' '\033[38;5;247m'
+  fi
+}
+
+usage_value_color() {
+  if [ "$1" -ge 50 ] 2>/dev/null; then usage_color "$1"
+  else printf '%s' '\033[97m'
+  fi
+}
+
+# should_show_window pct_raw reset_at window_seconds first_usage
+# Prints two lines (pct_int, remaining) if the window should be shown,
+# or nothing (empty output) otherwise.  Uses _now from caller scope.
+should_show_window() {
+  _pct=$1; _reset=$2; _window=$3; _first=$4
+  _pct_int=${_pct%%.*}
+  _pct_int=${_pct_int:-0}
+  _remaining=$((_reset - _now))
+  [ "$_remaining" -lt 0 ] 2>/dev/null && _remaining=0
+
+  case "$_pct" in
+    *.*)
+      _i=${_pct%%.*}; _f=${_pct#*.}; _d=${_f%"${_f#?}"}
+      _pct_x10=$(( (${_i:-0} * 10) + ${_d:-0} ))
+      ;;
+    *)
+      _pct_x10=$(( ${_pct:-0} * 10 ))
+      ;;
+  esac
+
+  _show=0
+  if [ "$_first" -eq 1 ] || [ "$_pct_int" -ge 75 ]; then
+    _show=1
+  else
+    _elapsed=$((_window - _remaining))
+    if [ "$_elapsed" -le 0 ]; then
+      _show=1
+    elif [ "$((_pct_x10 * _window))" -ge "$((1000 * _elapsed))" ]; then
+      _show=1
+    fi
+  fi
+
+  if [ "$_show" -eq 1 ]; then
+    printf '%s\n%s\n' "$_pct_int" "$_remaining"
+  fi
+}
 
 input=$(cat)
 
@@ -17,13 +84,25 @@ eval "$(echo "$input" | jq -r '
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
   "total_out=\(.context_window.total_output_tokens // 0 | floor | @sh)",
-  "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)"
+  "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)",
+  "rl_5h_pct=\(.rate_limits.five_hour.used_percentage // "" | @sh)",
+  "rl_5h_reset=\(.rate_limits.five_hour.resets_at // "" | @sh)",
+  "rl_7d_pct=\(.rate_limits.seven_day.used_percentage // "" | @sh)",
+  "rl_7d_reset=\(.rate_limits.seven_day.resets_at // "" | @sh)"
 ')"
 
 # Defaults if jq fails or fields are missing
 cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
 used=${used:-0}; model=${model:-unknown}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
+rl_5h_pct=${rl_5h_pct:-}; rl_5h_reset=${rl_5h_reset:-}
+rl_7d_pct=${rl_7d_pct:-}; rl_7d_reset=${rl_7d_reset:-}
+
+# Validate numeric fields
+case "$rl_5h_reset" in ""|*[!0-9]*) rl_5h_reset="" ;; esac
+case "$rl_7d_reset" in ""|*[!0-9]*) rl_7d_reset="" ;; esac
+case "$rl_5h_pct" in ""|*[!0-9.]*|*.*.*) rl_5h_pct="" ;; esac
+case "$rl_7d_pct" in ""|*[!0-9.]*|*.*.*) rl_7d_pct="" ;; esac
 
 # Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
 # Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
@@ -245,6 +324,67 @@ if [ -n "$cwd" ]; then
   fi
 fi
 
+# Rate limit visibility (each window shown independently)
+show_5h=0
+show_7d=0
+rl_5h_pct_int=0
+rl_7d_pct_int=0
+remaining_5h=0
+remaining_7d=0
+
+if [ -n "$rl_5h_pct" ] || [ -n "$rl_7d_pct" ]; then
+  _now=$(date +%s)
+
+  # First invocation of this session (show for USAGE_FIRST_WINDOW_S seconds)?
+  # State file creation is deferred until a window actually renders, so partial
+  # data (e.g. pct without reset) does not burn the first-usage grace period.
+  first_usage=0
+  usage_state_exists=0
+  if [ -n "$safe_id" ]; then
+    usage_state="/tmp/${USAGE_STATE_PREFIX}-${safe_id}"
+    if [ ! -f "$usage_state" ]; then
+      first_usage=1
+    else
+      usage_state_exists=1
+      usage_created=$(head -1 "$usage_state" 2>/dev/null)
+      case "$usage_created" in *[!0-9]*|"") usage_created="" ;; esac
+      if [ -n "$usage_created" ] && [ "$((_now - usage_created))" -lt "$USAGE_FIRST_WINDOW_S" ] 2>/dev/null; then
+        first_usage=1
+      fi
+    fi
+  else
+    first_usage=1
+  fi
+
+  # 5h window (18000s total)
+  if [ -n "$rl_5h_pct" ] && [ -n "$rl_5h_reset" ]; then
+    result_5h=$(should_show_window "$rl_5h_pct" "$rl_5h_reset" 18000 "$first_usage")
+    if [ -n "$result_5h" ]; then
+      show_5h=1
+      rl_5h_pct_int=$(echo "$result_5h" | sed -n '1p')
+      remaining_5h=$(echo "$result_5h" | sed -n '2p')
+    fi
+  fi
+
+  # 7d window (604800s total)
+  if [ -n "$rl_7d_pct" ] && [ -n "$rl_7d_reset" ]; then
+    result_7d=$(should_show_window "$rl_7d_pct" "$rl_7d_reset" 604800 "$first_usage")
+    if [ -n "$result_7d" ]; then
+      show_7d=1
+      rl_7d_pct_int=$(echo "$result_7d" | sed -n '1p')
+      remaining_7d=$(echo "$result_7d" | sed -n '2p')
+    fi
+  fi
+
+  # Create state file only once a window has actually rendered
+  if [ "$usage_state_exists" -eq 0 ] && [ -n "$safe_id" ] \
+     && { [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; }; then
+    printf '%s\n' "$_now" > "$usage_state"
+  fi
+fi
+
+# ─── Line 1: branch, diff, model, context, tpm ───
+
 printf "\033[36m⌥ %s${reset}" "$branch"
 printf "%b" "$diff_stat"
 printf "${sep}\033[38;5;252m✦ %s${reset}" "$model"
@@ -270,3 +410,25 @@ if [ "$tpm" -gt 0 ]; then
   fi
   printf "${sep}${dim}${bolt} %s tpm${reset}" "$tpm_display"
 fi
+
+# ─── Line 2: rate limit usage ───
+
+if [ "$show_5h" -eq 1 ] || [ "$show_7d" -eq 1 ]; then
+  printf '\n'
+
+  if [ "$show_5h" -eq 1 ]; then
+    rl_5h_color=$(usage_color "$rl_5h_pct_int")
+    rl_5h_vcolor=$(usage_value_color "$rl_5h_pct_int")
+    countdown_5h=$(fmt_countdown "$remaining_5h")
+    printf "${rl_5h_color}5h ${rl_5h_vcolor}%s%%${reset} \033[2;38;5;249m%s${reset}" "$rl_5h_pct_int" "$countdown_5h"
+  fi
+
+  if [ "$show_7d" -eq 1 ]; then
+    [ "$show_5h" -eq 1 ] && printf "$sep"
+    rl_7d_color=$(usage_color "$rl_7d_pct_int")
+    rl_7d_vcolor=$(usage_value_color "$rl_7d_pct_int")
+    countdown_7d=$(fmt_countdown "$remaining_7d")
+    printf "${rl_7d_color}7d ${rl_7d_vcolor}%s%%${reset} \033[2;38;5;249m%s${reset}" "$rl_7d_pct_int" "$countdown_7d"
+  fi
+fi
+
