@@ -8,6 +8,10 @@
   - Smart visibility: shown on first session invocation, when on pace to hit the limit, or when usage exceeds 75%
   - Color-coded usage tiers (dim/yellow/orange/red) with rounded countdown to reset
 
+### Fixed
+
+- Fix bolt icon rendering as emoji on some terminals by using ϟ (koppa) text glyph
+
 ## 1.2.0
 
 ### Added
