@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+### Fixed
+
+- Hide branch indicator entirely in non-git directories instead of showing a lone icon
+
 ## 1.3.0
 
 ### Added
