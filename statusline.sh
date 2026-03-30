@@ -393,7 +393,7 @@ fi
 printf "\033[38;5;252m✦ %s${reset}" "$model"
 printf "${sep}${ctx_color}%s %s%%${reset}" "$bar" "$used"
 if [ "$tpm" -gt 0 ]; then
-  if [ "$tpm" -ge 10000 ]; then
+  if [ "$tpm" -ge 100000 ]; then
     tpm_display="$((tpm / 1000))k"
   elif [ "$tpm" -ge 1000 ]; then
     tpm_display="$((tpm / 1000)).$((tpm % 1000 / 100))k"

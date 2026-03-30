@@ -26,10 +26,13 @@ load 'helpers'
   [[ "$(plain)" == *"3.0k tpm"* ]]
 }
 
-@test "tpm: shows Nk for 10000+" {
+@test "tpm: shows N.Nk for 10k-99.9k and integer for 100k+" {
   # 20000 tokens in 60s = 20000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 12000 8000
-  [[ "$(plain)" == *"20k tpm"* ]]
+  [[ "$(plain)" == *"20.0k tpm"* ]]
+  # 100000 tokens in 60s = 100000 tpm
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 60000 40000
+  [[ "$(plain)" == *"100k tpm"* ]]
 }
 
 # ─── TPM bolt colors ───
@@ -89,5 +92,5 @@ load 'helpers'
   # Duration goes backward -> restart -> window resets
   # 1000 tokens in 5s = 12000 tpm
   run run_sl "Opus 4.6" 25 "$TEST_SID" 5000 600 400
-  [[ "$(plain)" == *"12k tpm"* ]]
+  [[ "$(plain)" == *"12.0k tpm"* ]]
 }
