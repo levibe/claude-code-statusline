@@ -6,6 +6,7 @@ load 'helpers'
 
 @test "usage: no second line when rate_limits absent" {
   run run_sl "Opus 4.6" 25
+  [ "$status" -eq 0 ]
   [[ "$(plain)" != *$'\n'* ]]
 }
 
@@ -14,6 +15,7 @@ load 'helpers'
   reset=$((now + 3600))
   # 80% used -> always show (>= 75%)
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   plain_out=$(plain)
   [[ "$plain_out" == *"5h 80%"* ]]
   [[ "$plain_out" != *"7d "* ]]
@@ -24,6 +26,7 @@ load 'helpers'
   reset=$((now + 86400))
   # 80% used -> always show (>= 75%)
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" 80 "$reset"
+  [ "$status" -eq 0 ]
   plain_out=$(plain)
   [[ "$plain_out" != *"5h "* ]]
   [[ "$plain_out" == *"7d 80%"* ]]
@@ -34,6 +37,7 @@ load 'helpers'
   reset_5h=$((now + 3600))
   reset_7d=$((now + 86400))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset_5h" 80 "$reset_7d"
+  [ "$status" -eq 0 ]
   plain_out=$(plain)
   [[ "$plain_out" == *"5h 80%"* ]]
   [[ "$plain_out" == *"7d 80%"* ]]
@@ -43,6 +47,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 3600))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   line2=$(plain | sed -n '2p')
   [[ "$line2" == *"5h 80%"* ]]
 }
@@ -52,6 +57,7 @@ load 'helpers'
   reset=$((now + 3600))
   # 83.7% -> should display as 83%
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 83.7 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 83%"* ]]
 }
 
@@ -62,6 +68,7 @@ load 'helpers'
   # 2 days 5 hours + buffer = 190830s
   reset=$((now + 190830))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" 80 "$reset"
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"2d 5h"* ]]
 }
 
@@ -70,6 +77,7 @@ load 'helpers'
   # 3 hours 30 minutes = 12600s (+2s buffer for timing)
   reset=$((now + 12602))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"3h 30m"* ]]
 }
 
@@ -77,6 +85,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 330))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5m"* ]]
 }
 
@@ -84,6 +93,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 50))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"49s"* ]] || [[ "$(plain)" == *"50s"* ]]
 }
 
@@ -91,6 +101,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 9000))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 0 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 0%"* ]]
 }
 
@@ -98,6 +109,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now - 100))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 80 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 80% 0s"* ]]
 }
 
@@ -105,6 +117,7 @@ load 'helpers'
   # Construct JSON directly to bypass make_json's --argjson validation
   json='{"cwd":"","session_id":"'"$TEST_SID"'","transcript_path":"","context_window":{"used_percentage":25,"total_input_tokens":5000,"total_output_tokens":3000},"model":{"display_name":"Opus 4.6"},"cost":{"total_duration_ms":60000},"rate_limits":{"five_hour":{"used_percentage":80,"resets_at":"not-a-number"}}}'
   run sh -c 'echo "$1" | sh "$2"' _ "$json" "$SCRIPT"
+  [ "$status" -eq 0 ]
   plain_out=$(printf '%s' "$output" | sed $'s/\033\[[0-9;]*m//g')
   [[ "$plain_out" != *"5h "* ]]
 }
@@ -115,6 +128,7 @@ load 'helpers'
   # Empty session_id means no pace state file, treated as first invocation
   # Use 60% (under-pace) to verify the empty-session fallback shows it anyway
   run run_sl "Opus 4.6" 25 "" 60000 5000 3000 "" "" 60 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 60%"* ]]
 }
 
@@ -124,6 +138,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 3600))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$output" == *$'\033[38;5;247m'"5h "$'\033[97m'"49%"* ]]
 }
 
@@ -131,6 +146,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 3600))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 50 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$output" == *$'\033[93m'"5h "$'\033[93m'"50%"* ]]
 }
 
@@ -138,6 +154,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 3600))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 75 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$output" == *$'\033[38;5;208m'"5h "$'\033[38;5;208m'"75%"* ]]
 }
 
@@ -145,6 +162,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 3600))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 90 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$output" == *$'\033[91m'"5h "$'\033[91m'"90%"* ]]
 }
 
@@ -156,6 +174,7 @@ load 'helpers'
   # But first invocation, so should show
   reset=$((now + 9000))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 30%"* ]]
 }
 
@@ -168,6 +187,7 @@ load 'helpers'
   expire_first_usage
   # Second invocation should apply pace logic -> hidden
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" != *"5h "* ]]
 }
 
@@ -177,6 +197,7 @@ load 'helpers'
   reset=$((now + 7200))
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 70 "$reset" "" ""
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 70 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 70%"* ]]
 }
 
@@ -186,6 +207,7 @@ load 'helpers'
   reset=$((now + 16200))
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 75 "$reset" "" ""
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 75 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 75%"* ]]
 }
 
@@ -198,6 +220,7 @@ load 'helpers'
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset_5h" 80 "$reset_7d"
   expire_first_usage
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset_5h" 80 "$reset_7d"
+  [ "$status" -eq 0 ]
   plain_out=$(plain)
   [[ "$plain_out" != *"5h "* ]]
   [[ "$plain_out" == *"7d 80%"* ]]
@@ -205,11 +228,13 @@ load 'helpers'
 
 @test "usage: shown when window just started (elapsed <= 0)" {
   now=$(date +%s)
-  # resets_at is nearly a full window away -> elapsed ~0
-  reset=$((now + 18000))
-  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 5 "$reset" "" ""
-  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 5 "$reset" "" ""
-  [[ "$(plain)" == *"5h 5%"* ]]
+  # resets_at beyond a full window -> elapsed < 0
+  reset=$((now + 18005))
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 0 "$reset" "" ""
+  expire_first_usage
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 0 "$reset" "" ""
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" == *"5h 0%"* ]]
 }
 
 # ─── First-usage window ───
@@ -221,6 +246,7 @@ load 'helpers'
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
   # Second invocation is immediate (within 5s window) -> should still show
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 30%"* ]]
 }
 
@@ -230,6 +256,7 @@ load 'helpers'
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
   expire_first_usage
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" != *"5h "* ]]
 }
 
@@ -237,6 +264,7 @@ load 'helpers'
   now=$(date +%s)
   reset=$((now + 60))
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 100 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 100%"* ]]
 }
 
@@ -257,6 +285,7 @@ load 'helpers'
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49.9 "$reset" "" ""
   expire_first_usage
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49.9 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 49%"* ]]
 }
 
@@ -268,6 +297,7 @@ load 'helpers'
   invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49 "$reset" "" ""
   expire_first_usage
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 49 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" != *"5h "* ]]
 }
 
@@ -279,6 +309,7 @@ load 'helpers'
   [[ ! -f "/tmp/claude-code-statusline-usage-${TEST_SID}" ]]
   # Second invocation: complete data arrives, first-usage still active -> shown
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 30%"* ]]
 }
 
@@ -290,6 +321,7 @@ load 'helpers'
   [[ ! -f "/tmp/claude-code-statusline-usage-${TEST_SID}" ]]
   # Second invocation: complete data -> first-usage still active
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   [[ "$(plain)" == *"5h 30%"* ]]
 }
 
@@ -299,6 +331,7 @@ load 'helpers'
   # Simulate old-version state file (empty)
   : > "/tmp/claude-code-statusline-usage-${TEST_SID}"
   run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" 30 "$reset" "" ""
+  [ "$status" -eq 0 ]
   # Under pace and window expired -> hidden
   [[ "$(plain)" != *"5h "* ]]
 }
