@@ -162,9 +162,10 @@ fi
 # Per-session model cache — prevents global model changes in other sessions
 # from affecting this session's display before it has new activity.
 #
-# State file format (2 lines):
+# State file format (3 lines):
 #   line 1: last known model string for this session
-#   line 2: duration_ms at the time that model was recorded
+#   line 2: context_window_size at the time that model was recorded
+#   line 3: duration_ms at the time that model was recorded
 #
 # Update rule: only replace the cached model when duration_ms has increased,
 # meaning this session processed a real assistant turn.
@@ -172,25 +173,34 @@ fi
 if [ -n "$safe_id" ]; then
   model_file="/tmp/${MODEL_STATE_PREFIX}-${safe_id}"
   if [ -f "$model_file" ]; then
-    cached_model=$(head -1 "$model_file")
-    cached_duration=$(tail -1 "$model_file")
-    # Reject non-numeric cached_duration (e.g. from a corrupted/truncated file)
-    cached_duration=$(printf '%s' "$cached_duration" | grep -E '^[0-9]+$' || echo 0)
-    cached_duration=${cached_duration:-0}
+    cached_model=$(sed -n '1p' "$model_file")
+    cached_ctx_size=$(sed -n '2p' "$model_file")
+    cached_duration=$(sed -n '3p' "$model_file")
+    # Migrate legacy 2-line cache: line 2 was duration_ms, line 3 missing
+    if [ -n "$cached_ctx_size" ] && [ -z "$cached_duration" ]; then
+      cached_duration="$cached_ctx_size"
+      cached_ctx_size=0
+    fi
+    # Reject non-numeric cached values (e.g. from a corrupted/truncated file)
+    case "$cached_ctx_size" in ""|*[!0-9]*) cached_ctx_size=0 ;; esac
+    case "$cached_duration" in ""|*[!0-9]*) cached_duration=0 ;; esac
     if [ "$duration_ms" -lt "$cached_duration" ] 2>/dev/null; then
       # duration_ms went backwards → session restarted; reset cache
-      [ "$model" != "unknown" ] && printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+      [ "$model" != "unknown" ] && printf '%s\n%s\n%s\n' "$model" "$ctx_size" "$duration_ms" > "$model_file"
     elif [ "$duration_ms" -gt "$cached_duration" ] 2>/dev/null && [ "$model" != "unknown" ]; then
       # New activity with a known model → update cache
-      printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+      printf '%s\n%s\n%s\n' "$model" "$ctx_size" "$duration_ms" > "$model_file"
     else
-      # No new activity, or model is unknown → keep cached model
-      [ -n "$cached_model" ] && model="$cached_model"
+      # No new activity, or model is unknown → keep cached model + context size
+      if [ -n "$cached_model" ]; then
+        model="$cached_model"
+        ctx_size="$cached_ctx_size"
+      fi
     fi
   elif [ "$model" != "unknown" ]; then
     # First invocation for this session → initialize cache
     # Skip initialization if model is unknown (jq failure) to avoid caching a bad value
-    printf '%s\n%s\n' "$model" "$duration_ms" > "$model_file"
+    printf '%s\n%s\n%s\n' "$model" "$ctx_size" "$duration_ms" > "$model_file"
   fi
 fi
 

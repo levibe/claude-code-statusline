@@ -103,11 +103,15 @@ plain() {
 
 # Read model cache file for a session
 cached_model() {
-  head -1 "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
+  sed -n '1p' "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
+}
+
+cached_ctx_size() {
+  sed -n '2p' "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
 }
 
 cached_duration() {
-  tail -1 "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
+  sed -n '3p' "/tmp/claude-code-statusline-model-${1:-$TEST_SID}"
 }
 
 # Expire the first-usage display window for a session
