@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+
+- Show 1M context indicator after model name to disambiguate 200k and 1M context variants
+- Use 4-shade progress bar (░▒▓█) for finer context usage granularity (20 visual steps instead of 5)
+
 ## 1.3.2
 
 ### Changed
