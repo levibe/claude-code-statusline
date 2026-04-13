@@ -28,6 +28,26 @@ load 'helpers'
   [[ "$(plain)" == *"✦ Opus 4.6"* ]]
 }
 
+# ─── Context window size indicator ───
+
+@test "model: shows 1M suffix for 1M context" {
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 1000000
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" == *"✦ Opus 4.6 1M"* ]]
+}
+
+@test "model: no 1M suffix for 200k context" {
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 200000
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" != *"1M"* ]]
+}
+
+@test "model: no 1M suffix when context_window_size missing" {
+  run run_sl "Opus 4.6"
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" != *"1M"* ]]
+}
+
 @test "model: rejects garbled 'Op.6'" {
   run run_sl "Op.6"
   [ "$status" -eq 0 ]
@@ -86,6 +106,15 @@ load 'helpers'
   [ "$(cached_model)" = "Opus 4.6" ]
 }
 
+@test "cache: ctx_size restored from cache alongside model" {
+  # Opus with 1M context cached
+  invoke "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 1000000
+  # Same duration, different model+ctx_size from CC -- cache should win for both
+  run run_sl "Sonnet 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 200000
+  [[ "$(plain)" == *"✦ Opus 4.6 1M"* ]]
+  [ "$(cached_ctx_size)" = "1000000" ]
+}
+
 @test "cache: updated when duration increases with known model" {
   invoke "Opus 4.6" 25 "$TEST_SID" 60000
   run run_sl "Sonnet 4.6" 25 "$TEST_SID" 120000
@@ -123,6 +152,25 @@ load 'helpers'
   invoke "Sonnet 4.6" 25 "${TEST_SID}-b" 60000
   [ "$(cached_model "${TEST_SID}-a")" = "Opus 4.6" ]
   [ "$(cached_model "${TEST_SID}-b")" = "Sonnet 4.6" ]
+}
+
+@test "cache: truncated 1-line cache file falls through gracefully" {
+  # Simulate a corrupted/truncated cache with only the model line
+  printf 'Opus 4.6\n' > "/tmp/claude-code-statusline-model-${TEST_SID}"
+  run run_sl "Sonnet 4.6" 25 "$TEST_SID" 60000
+  [ "$status" -eq 0 ]
+  # duration_ms (60000) > cached_duration (0, missing line), so cache is updated
+  [[ "$(plain)" == *"✦ Sonnet 4.6"* ]]
+  [ "$(cached_model)" = "Sonnet 4.6" ]
+}
+
+@test "cache: legacy 2-line cache migrates without flicker" {
+  # Simulate a pre-upgrade 2-line cache (model + duration, no ctx_size)
+  printf 'Opus 4.6\n60000\n' > "/tmp/claude-code-statusline-model-${TEST_SID}"
+  # Same duration -- "no new activity" path should restore cached model
+  run run_sl "Sonnet 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 200000
+  [[ "$(plain)" == *"✦ Opus 4.6"* ]]
+  [ "$(cached_model)" = "Opus 4.6" ]
 }
 
 @test "cache: empty session_id bypasses caching" {
