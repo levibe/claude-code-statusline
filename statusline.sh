@@ -401,7 +401,7 @@ if [ -n "$branch" ]; then
 fi
 printf "\033[38;5;252m✦ %s${reset}" "$model"
 if [ "$ctx_size" -ge 1000000 ] 2>/dev/null; then
-  printf " ${dim}1M${reset}"
+  printf " \033[38;5;252m1M${reset}"
 fi
 printf "${sep}${ctx_color}%s %s%%${reset}" "$bar" "$used"
 if [ "$tpm" -gt 0 ]; then
