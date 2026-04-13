@@ -1,5 +1,5 @@
 #!/bin/sh
-# Line 1: ⌥ branch  +N -N  ✦ model  ▓▓░░ N%  ϟ N tpm
+# Line 1: ⌥ branch  +N -N  ✦ model  ██▒░░ N%  ϟ N tpm
 # Line 2: 5h N% XhYm  7d N% XdYh   (shown when on pace / ≥75%)
 
 TPM_STATE_PREFIX="claude-code-statusline-tpm"
@@ -236,13 +236,21 @@ if [ -n "$safe_id" ]; then
   fi
 fi
 
-# 5-char progress bar (each bar = 20%)
-filled=$((used / 20))
-[ "$used" -ge 95 ] && filled=5
-[ "$filled" -gt 5 ] && filled=5
-case $filled in
-  0) bar="░░░░░" ;; 1) bar="▓░░░░" ;; 2) bar="▓▓░░░" ;; 3) bar="▓▓▓░░" ;; 4) bar="▓▓▓▓░" ;; 5) bar="▓▓▓▓▓" ;;
-esac
+# 5-char progress bar with 4 shades (░▒▓█), 20 visual steps
+bar=""
+for i in 0 1 2 3 4; do
+  slot_start=$((i * 20))
+  remainder=$((used - slot_start))
+  if [ "$remainder" -ge 20 ]; then
+    bar="${bar}█"
+  elif [ "$remainder" -ge 13 ]; then
+    bar="${bar}▓"
+  elif [ "$remainder" -ge 7 ]; then
+    bar="${bar}▒"
+  else
+    bar="${bar}░"
+  fi
+done
 
 # Context color gradient (no green/red to avoid clashing with diff stats)
 if [ "$used" -ge 75 ]; then
