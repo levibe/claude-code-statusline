@@ -41,7 +41,14 @@ make_json() {
   local rl_5h_reset="${10:-}"
   local rl_7d_pct="${11:-}"
   local rl_7d_reset="${12:-}"
+  local ctx_size="${13:-}"
   local base
+  local ctx_size_args=()
+  local ctx_size_filter="."
+  if [ -n "$ctx_size" ]; then
+    ctx_size_args=(--argjson ctxsz "$ctx_size")
+    ctx_size_filter=". | .context_window.context_window_size = \$ctxsz"
+  fi
   base=$(jq -n \
     --arg cwd "$cwd" \
     --arg sid "$session_id" \
@@ -51,6 +58,7 @@ make_json() {
     --argjson tin "$total_in" \
     --argjson tout "$total_out" \
     --argjson dur "$duration_ms" \
+    "${ctx_size_args[@]}" \
     '{
       cwd: $cwd,
       session_id: $sid,
@@ -58,7 +66,7 @@ make_json() {
       context_window: { used_percentage: $used, total_input_tokens: $tin, total_output_tokens: $tout },
       model: { display_name: $model },
       cost: { total_duration_ms: $dur }
-    }')
+    } | '"$ctx_size_filter")
   if [ -n "$rl_5h_pct" ] || [ -n "$rl_5h_reset" ] || [ -n "$rl_7d_pct" ] || [ -n "$rl_7d_reset" ]; then
     local rl_args=()
     local rl_filter="."

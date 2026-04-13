@@ -82,6 +82,7 @@ eval "$(echo "$input" | jq -r '
   "transcript_path=\(.transcript_path // "" | @sh)",
   "used=\(.context_window.used_percentage // 0 | floor | @sh)",
   "model=\(.model.display_name // "unknown" | sub(" *\\(.*\\)"; "") | @sh)",
+  "ctx_size=\(.context_window.context_window_size // 0 | floor | @sh)",
   "total_in=\(.context_window.total_input_tokens // 0 | floor | @sh)",
   "total_out=\(.context_window.total_output_tokens // 0 | floor | @sh)",
   "duration_ms=\(.cost.total_duration_ms // 0 | floor | @sh)",
@@ -93,7 +94,7 @@ eval "$(echo "$input" | jq -r '
 
 # Defaults if jq fails or fields are missing
 cwd=${cwd:-}; session_id=${session_id:-}; transcript_path=${transcript_path:-}
-used=${used:-0}; model=${model:-unknown}
+used=${used:-0}; model=${model:-unknown}; ctx_size=${ctx_size:-0}
 total_in=${total_in:-0}; total_out=${total_out:-0}; duration_ms=${duration_ms:-0}
 rl_5h_pct=${rl_5h_pct:-}; rl_5h_reset=${rl_5h_reset:-}
 rl_7d_pct=${rl_7d_pct:-}; rl_7d_reset=${rl_7d_reset:-}
@@ -391,6 +392,9 @@ if [ -n "$branch" ]; then
   printf "%s" "$sep"
 fi
 printf "\033[38;5;252m✦ %s${reset}" "$model"
+if [ "$ctx_size" -ge 1000000 ] 2>/dev/null; then
+  printf " ${dim}1M${reset}"
+fi
 printf "${sep}${ctx_color}%s %s%%${reset}" "$bar" "$used"
 if [ "$tpm" -gt 0 ]; then
   if [ "$tpm" -ge 100000 ]; then

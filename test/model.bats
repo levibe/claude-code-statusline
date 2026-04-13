@@ -28,6 +28,26 @@ load 'helpers'
   [[ "$(plain)" == *"✦ Opus 4.6"* ]]
 }
 
+# ─── Context window size indicator ───
+
+@test "model: shows 1M suffix for 1M context" {
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 1000000
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" == *"✦ Opus 4.6 1M"* ]]
+}
+
+@test "model: no 1M suffix for 200k context" {
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "" "" "" "" "" "" 200000
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" != *"1M"* ]]
+}
+
+@test "model: no 1M suffix when context_window_size missing" {
+  run run_sl "Opus 4.6"
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" != *"1M"* ]]
+}
+
 @test "model: rejects garbled 'Op.6'" {
   run run_sl "Op.6"
   [ "$status" -eq 0 ]
