@@ -71,6 +71,11 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 - Validates model names to filter garbled input from Claude Code
 
 
+## Changelog
+
+[CHANGELOG.md](CHANGELOG.md)
+
+
 ## Development
 
 Run the test suite:
