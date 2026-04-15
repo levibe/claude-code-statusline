@@ -204,6 +204,32 @@ if [ -n "$safe_id" ]; then
   fi
 fi
 
+# Rescale context percentage so 100% displayed matches the actual autocompact
+# point. Claude Code reserves ~33k tokens as an autocompact buffer, so without
+# rescaling, users see "70% used" and get surprised by compaction at what looks
+# like 83%. Runs after the cache block because cached ctx_size may replace the
+# live value.
+effective_ctx_size=$ctx_size
+[ "$effective_ctx_size" -le 0 ] 2>/dev/null && effective_ctx_size=200000
+effective_size=$((effective_ctx_size - 33000))
+case "${CLAUDE_AUTOCOMPACT_PCT_OVERRIDE:-}" in
+  ""|*[!0-9]*) ;;
+  *)
+    if [ "$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" -ge 1 ] 2>/dev/null \
+      && [ "$CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" -le 100 ] 2>/dev/null; then
+      effective_size=$((effective_ctx_size * CLAUDE_AUTOCOMPACT_PCT_OVERRIDE / 100))
+    fi
+    ;;
+esac
+if [ "$effective_size" -gt 0 ] 2>/dev/null; then
+  rescaled=$((used * effective_ctx_size / effective_size))
+  if [ "$rescaled" -gt 100 ]; then
+    used=100
+  else
+    used=$rescaled
+  fi
+fi
+
 # Sliding window TPM (overrides full-session average when enough data)
 if [ -n "$safe_id" ]; then
   state_file="/tmp/${TPM_STATE_PREFIX}-${safe_id}"
@@ -262,8 +288,10 @@ for i in 0 1 2 3 4; do
   fi
 done
 
-# Context color gradient (no green/red to avoid clashing with diff stats)
-if [ "$used" -ge 75 ]; then
+# Context color gradient, relative to the rescaled `used` value (100% = autocompact point).
+if [ "$used" -ge 90 ]; then
+  ctx_color="\033[91m"          # red: compaction imminent or past
+elif [ "$used" -ge 75 ]; then
   ctx_color="\033[38;5;208m"    # orange
 elif [ "$used" -ge 50 ]; then
   ctx_color="\033[93m"          # yellow

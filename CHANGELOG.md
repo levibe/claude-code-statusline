@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Context percentage rescaled so 100% matches the actual autocompact point instead of the raw window size. Displayed values will appear higher than before (e.g. 70% raw → 83% displayed on a 200k window) because Claude Code reserves ~33k tokens as an autocompact buffer. This is deliberate — the old display suggested headroom that didn't exist
+- Added red color tier at 90%+ for a visible compaction-imminent signal (previous top tier was orange at 75%+)
+- Respect `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` when computing the effective capacity
+
 ## 1.4.0
 
 ### Added
