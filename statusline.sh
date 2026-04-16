@@ -207,12 +207,33 @@ fi
 # Sliding window TPM (overrides full-session average when enough data)
 if [ -n "$safe_id" ]; then
   state_file="/tmp/${TPM_STATE_PREFIX}-${safe_id}"
-  [ -f "$state_file" ] || : > "$state_file"
+  restart_sentinel="${state_file}.restart"
+  # If the state file is missing (eviction or first run), clear any orphaned
+  # sentinel so we don't hide TPM forever when the two files get out of sync.
+  if [ ! -f "$state_file" ]; then
+    : > "$state_file"
+    rm -f "$restart_sentinel"
+  fi
 
-  # Detect session restart (duration_ms went backwards)
+  # Detect session restart (duration_ms went backwards). When we can prove the
+  # resumed session has at least as many tokens as before, seed the state file
+  # with a synthetic baseline at ms=0 so the first post-restart sample produces
+  # a real window_tpm (delta = post-restart tokens / post-restart duration).
+  # When prev_tok > total_tokens (context trim, etc.) the baseline would yield
+  # a negative delta and keep the sentinel set for up to TPM_WINDOW_MS, so we
+  # truncate instead and let the natural sliding window recover after two real
+  # samples. The sentinel forces tpm=0 until window_tpm is non-empty/positive.
   last_ms=$(tail -n 1 "$state_file" 2>/dev/null | awk '$1 ~ /^[0-9]+$/ { print $1 }')
   if [ -n "$last_ms" ] && [ "$duration_ms" -lt "$last_ms" ] 2>/dev/null; then
-    : > "$state_file"
+    prev_tok=$(tail -n 1 "$state_file" 2>/dev/null \
+               | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ { print $2 }')
+    if [ -n "$prev_tok" ] && [ "$prev_tok" -gt 0 ] 2>/dev/null \
+       && [ "$total_tokens" -gt "$prev_tok" ] 2>/dev/null; then
+      printf '0 %s\n' "$prev_tok" > "$state_file"
+    else
+      : > "$state_file"
+    fi
+    : > "$restart_sentinel"
   fi
 
   cutoff=$((duration_ms - TPM_WINDOW_MS))
@@ -240,9 +261,14 @@ if [ -n "$safe_id" ]; then
 
   [ -f "$tmpfile" ] && mv "$tmpfile" "$state_file"
 
-  # Negative deltas (e.g. context window reset) produce negative TPM — intentionally ignored
+  # When the awk produced a usable rate, take it and clear any restart sentinel.
+  # Otherwise (empty / negative window_tpm), the sentinel keeps the segment
+  # hidden until a real post-restart sample pair produces a positive rate.
   if [ -n "$window_tpm" ] && [ "$window_tpm" -gt 0 ] 2>/dev/null; then
     tpm=$window_tpm
+    rm -f "$restart_sentinel"
+  elif [ -f "$restart_sentinel" ]; then
+    tpm=0
   fi
 fi
 
@@ -415,14 +441,20 @@ if [ "$ctx_size" -ge 1000000 ] 2>/dev/null; then
 fi
 printf "${sep}${ctx_color}%s %s%%${reset}" "$bar" "$used"
 if [ "$tpm" -gt 0 ]; then
-  if [ "$tpm" -ge 100000 ]; then
+  if [ "$tpm" -ge 100000000 ]; then
+    tpm_display="$((tpm / 1000000))M"
+  elif [ "$tpm" -ge 1000000 ]; then
+    tpm_display="$((tpm / 1000000)).$((tpm % 1000000 / 100000))M"
+  elif [ "$tpm" -ge 100000 ]; then
     tpm_display="$((tpm / 1000))k"
   elif [ "$tpm" -ge 1000 ]; then
     tpm_display="$((tpm / 1000)).$((tpm % 1000 / 100))k"
   else
     tpm_display="$tpm"
   fi
-  if [ "$tpm" -ge 20000 ]; then
+  if [ "$tpm" -ge 1000000 ]; then
+    bolt="\033[38;5;198mϟ${dim}"  # hot pink — ludicrous tier, likely a measurement glitch
+  elif [ "$tpm" -ge 20000 ]; then
     bolt="\033[38;5;57mϟ${dim}"   # deep violet
   elif [ "$tpm" -ge 10000 ]; then
     bolt="\033[91mϟ${dim}"        # red
