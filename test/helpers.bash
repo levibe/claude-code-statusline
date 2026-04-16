@@ -86,14 +86,24 @@ make_json() {
   fi
 }
 
-# Run the script, capturing output for assertions via `run`
+# Run the script, capturing output for assertions via `run`.
+# Forces CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=100 so rescaling is an identity — tests
+# that pass a raw `used_percentage` see it displayed unchanged. Tests that need
+# real rescale behavior should use run_sl_rescaled instead.
 run_sl() {
-  make_json "$@" | sh "$SCRIPT"
+  make_json "$@" | env CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=100 sh "$SCRIPT"
 }
 
 # Set up cache state without capturing output
 invoke() {
-  make_json "$@" | sh "$SCRIPT" > /dev/null
+  make_json "$@" | env CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=100 sh "$SCRIPT" > /dev/null
+}
+
+# Run the script without the identity-override, for tests that exercise the
+# real rescale math. Inherits CLAUDE_AUTOCOMPACT_PCT_OVERRIDE from the caller
+# when set (so individual tests can inject their own override value).
+run_sl_rescaled() {
+  make_json "$@" | sh "$SCRIPT"
 }
 
 # Strip ANSI escape codes from $output

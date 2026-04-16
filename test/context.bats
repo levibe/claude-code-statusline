@@ -89,3 +89,9 @@ load 'helpers'
   # \033[38;5;208m = orange
   [[ "$output" == *$'\033[38;5;208m'"███"* ]]
 }
+
+@test "color: red at 90%" {
+  run run_sl "Opus 4.6" 90
+  # \033[91m = red
+  [[ "$output" == *$'\033[91m'"████"* ]]
+}
