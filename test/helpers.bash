@@ -21,6 +21,7 @@ cleanup_state() {
   sid=$(printf '%s' "$1" | tr -dc 'a-zA-Z0-9_-')
   rm -f "/tmp/claude-code-statusline-model-${sid}"
   rm -f "/tmp/claude-code-statusline-tpm-${sid}"
+  rm -f "/tmp/claude-code-statusline-tpm-${sid}.restart"
   rm -f "/tmp/claude-code-statusline-subagent-${sid}"
   rm -f "/tmp/claude-code-statusline-usage-${sid}"
 }
