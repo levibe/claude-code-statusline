@@ -1,12 +1,20 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
+
+### Added
+
+- Format TPM values at or above 1M as `N.NM` with a hot-pink bolt color tier for high-throughput sessions
+- Red color tier at 90%+ context usage to signal compaction is imminent (previous top tier was orange at 75%+)
+- Respect `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` (1-100) when computing the effective context capacity
 
 ### Changed
 
-- Context percentage rescaled so 100% matches the actual autocompact point instead of the raw window size. Displayed values will appear higher than before (e.g. 70% raw → 83% displayed on a 200k window) because Claude Code reserves ~33k tokens as an autocompact buffer. This is deliberate — the old display suggested headroom that didn't exist
-- Added red color tier at 90%+ for a visible compaction-imminent signal (previous top tier was orange at 75%+)
-- Respect `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` when computing the effective capacity
+- Context percentage now rescales so 100% matches the actual autocompact point instead of the raw window size. Displayed values will appear higher than before (e.g. 70% raw → 83% displayed on a 200k window) because Claude Code reserves ~33k tokens as an autocompact buffer. The old display suggested headroom that didn't exist
+
+### Fixed
+
+- Prevent spurious multi-million TPM readings after session resume by seeding the sliding window with a synthetic baseline and hiding the segment until a real post-resume rate is produced
 
 ## 1.4.0
 
