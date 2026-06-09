@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+### Fixed
+
+- Accept model names with a bare major version (e.g. "Fable 5"), which previously failed validation and displayed as "unknown"
+
 ## 1.5.0
 
 ### Added
