@@ -22,6 +22,12 @@ load 'helpers'
   [[ "$(plain)" == *"✦ Haiku 4.5"* ]]
 }
 
+@test "model: accepts bare major version 'Fable 5'" {
+  run run_sl "Fable 5"
+  [ "$status" -eq 0 ]
+  [[ "$(plain)" == *"✦ Fable 5"* ]]
+}
+
 @test "model: strips parenthetical suffix 'Opus 4.6 (1M context)'" {
   run run_sl "Opus 4.6 (1M context)"
   [ "$status" -eq 0 ]

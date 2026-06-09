@@ -105,11 +105,11 @@ case "$rl_7d_reset" in ""|*[!0-9]*) rl_7d_reset="" ;; esac
 case "$rl_5h_pct" in ""|*[!0-9.]*|*.*.*) rl_5h_pct="" ;; esac
 case "$rl_7d_pct" in ""|*[!0-9.]*|*.*.*) rl_7d_pct="" ;; esac
 
-# Validate model name: must match "Name N.N" pattern (e.g. "Opus 4.6", "Sonnet 4.6", "Haiku 4.5")
+# Validate model name: must match "Name N" or "Name N.N" (e.g. "Fable 5", "Opus 4.6", "Haiku 4.5")
 # Garbled names from Claude Code (e.g. "Op.6") are treated as unknown so they don't pollute the cache
 case "$model" in
   unknown) ;;
-  *) echo "$model" | grep -qE '^[A-Z][a-z]+ [0-9]+\.[0-9]+$' || model="unknown" ;;
+  *) echo "$model" | grep -qE '^[A-Z][a-z]+ [0-9]+(\.[0-9]+)?$' || model="unknown" ;;
 esac
 
 # Session-scoped state key (used by model cache and sliding window TPM)
