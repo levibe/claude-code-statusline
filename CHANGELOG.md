@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+### Added
+
+- Mark a linked git worktree in the branch segment with a distinct icon and light-mauve color, distinguishing it from the main checkout at a glance
+
 ## 1.5.1
 
 ### Fixed
