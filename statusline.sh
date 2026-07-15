@@ -356,7 +356,7 @@ if [ -n "$cwd" ]; then
     gcd=$(printf '%s\n' "$gitdirs" | sed -n '2p')
     if [ -n "$gd" ] && [ "$gd" != "$gcd" ]; then
       branch_glyph="⧉"                # worktree = a parallel copy of the repo
-      branch_color="\033[38;5;147m"   # light periwinkle, distinct from the cyan main checkout
+      branch_color="\033[38;5;182m"   # light mauve, distinct from the cyan main checkout
     fi
     added=0
     removed=0
