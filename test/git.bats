@@ -62,3 +62,32 @@ load 'helpers'
   [[ "$(plain)" != *"⌥"* ]]
   [[ "$(plain)" == *"✦ Opus 4.6"* ]]
 }
+
+@test "git: main checkout uses the main-checkout glyph" {
+  TEST_GIT_REPO=$(mktemp -d)
+  git -C "$TEST_GIT_REPO" init -b main >/dev/null 2>&1
+  git -C "$TEST_GIT_REPO" -c user.name=test -c user.email=test@test commit --allow-empty -m "init" >/dev/null 2>&1
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "$TEST_GIT_REPO"
+  [[ "$(plain)" == *"⌥ main"* ]]
+  [[ "$(plain)" != *"⧉"* ]]
+}
+
+@test "git: linked worktree uses the worktree glyph" {
+  TEST_GIT_REPO=$(mktemp -d)
+  git -C "$TEST_GIT_REPO" init -b main >/dev/null 2>&1
+  git -C "$TEST_GIT_REPO" -c user.name=test -c user.email=test@test commit --allow-empty -m "init" >/dev/null 2>&1
+  git -C "$TEST_GIT_REPO" -c user.name=test -c user.email=test@test worktree add -b feature "$TEST_GIT_REPO/.worktrees/feature" >/dev/null 2>&1
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "$TEST_GIT_REPO/.worktrees/feature"
+  [[ "$(plain)" == *"⧉ feature"* ]]
+  [[ "$(plain)" != *"⌥"* ]]
+}
+
+@test "git: subdir of main checkout is not mistaken for a worktree" {
+  TEST_GIT_REPO=$(mktemp -d)
+  git -C "$TEST_GIT_REPO" init -b main >/dev/null 2>&1
+  git -C "$TEST_GIT_REPO" -c user.name=test -c user.email=test@test commit --allow-empty -m "init" >/dev/null 2>&1
+  mkdir -p "$TEST_GIT_REPO/subdir"
+  run run_sl "Opus 4.6" 25 "$TEST_SID" 60000 5000 3000 "$TEST_GIT_REPO/subdir"
+  [[ "$(plain)" == *"⌥ main"* ]]
+  [[ "$(plain)" != *"⧉"* ]]
+}

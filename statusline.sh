@@ -334,6 +334,8 @@ sep="  "
 # Git branch + uncommitted diff stats (tracked + untracked)
 branch=""
 diff_stat=""
+branch_glyph="⌥"          # main checkout
+branch_color="\033[36m"   # cyan
 if [ -n "$cwd" ]; then
   branch=$(git --no-optional-locks -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)
   # Detached HEAD: show short SHA instead of literal "HEAD"
@@ -341,6 +343,21 @@ if [ -n "$cwd" ]; then
   # Empty repo (no commits): fall back to symbolic ref for branch name
   [ -z "$branch" ] && branch=$(git --no-optional-locks -C "$cwd" symbolic-ref --short HEAD 2>/dev/null)
   if [ -n "$branch" ]; then
+    # Worktree indicator: in a linked worktree the per-worktree git dir
+    # (.git/worktrees/<name>) differs from the shared --git-common-dir (.git);
+    # in the main checkout they're identical. Covers nested, sibling, and
+    # detached-HEAD worktrees regardless of whether cwd is the top or a subdir.
+    # --path-format=absolute forces --git-dir and --git-common-dir to the same
+    # (absolute) form; without it, from a subdir of the main checkout git prints
+    # git-dir absolute but common-dir relative, so the string compare below would
+    # false-positive a plain main checkout as a worktree.
+    gitdirs=$(git --no-optional-locks -C "$cwd" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null)
+    gd=$(printf '%s\n' "$gitdirs" | sed -n '1p')
+    gcd=$(printf '%s\n' "$gitdirs" | sed -n '2p')
+    if [ -n "$gd" ] && [ "$gd" != "$gcd" ]; then
+      branch_glyph="⧉"                # worktree = a parallel copy of the repo
+      branch_color="\033[38;5;147m"   # light periwinkle, distinct from the cyan main checkout
+    fi
     added=0
     removed=0
     # Tracked changes require at least one commit
@@ -459,7 +476,7 @@ fi
 # ─── Line 1: branch, diff, model, context, tpm ───
 
 if [ -n "$branch" ]; then
-  printf "\033[36m⌥ %s${reset}" "$branch"
+  printf "${branch_color}${branch_glyph} %s${reset}" "$branch"
   printf "%b" "$diff_stat"
   printf "%s" "$sep"
 fi
