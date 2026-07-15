@@ -68,6 +68,7 @@ Or clone and symlink: `git clone https://github.com/levibe/claude-code-statuslin
 - Caps line counting at 10k to avoid slowdowns on large diffs
 - TPM uses a 5-minute sliding window and includes subagent token usage
 - Shows short SHA on detached HEAD; falls back to symbolic ref in empty repos
+- Marks a linked git worktree with a distinct icon and color, separating it from the main checkout
 - Uses `--no-optional-locks` on all git calls to prevent lock contention
 - Fixes model name bleeding across sessions ([CC bug](https://github.com/anthropics/claude-code/issues/19570))
 - Validates model names to filter garbled input from Claude Code
