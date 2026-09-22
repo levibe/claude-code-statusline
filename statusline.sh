@@ -129,6 +129,17 @@ hidden() {
   return 1
 }
 
+# Middle-truncate $1 past 19 characters, keeping 9 per side so a full ticket
+# id (PRO-14555) survives the cut; 19 or fewer pass through untouched. sed's
+# `.` is a byte in the C locale (what we get when Claude Code starts without
+# LANG), which would split a multibyte character. So pin the C locale and
+# spell out a UTF-8 character ourselves: one non-continuation byte followed
+# by its continuation bytes (octal 200-277).
+middle_truncate() {
+  utf8_char=$(printf '[^\200-\277][\200-\277]*')
+  printf '%s' "$1" | LC_ALL=C sed -E "s/^((${utf8_char}){9})(${utf8_char}){2,}((${utf8_char}){9})\$/\\1…\\4/"
+}
+
 # Temp file cleanup (set once, covers all temp files created below)
 untracked_list=""
 trap 'rm -f "$untracked_list"' EXIT
@@ -323,6 +334,9 @@ sep="  "
 # Skipped entirely when both are hidden; the diff scan alone when only diff is.
 branch=""
 diff_stat=""
+worktree_name=""          # worktree folder name, only when it differs from the branch
+worktree_display=""       # worktree name as rendered beside the branch (may be truncated)
+branch_display=""         # branch as rendered beside the worktree name (may be truncated)
 branch_glyph="⌥"          # main checkout
 branch_color="\033[36m"   # cyan
 if [ -n "$cwd" ] && { ! hidden branch || ! hidden diff; }; then
@@ -341,12 +355,43 @@ if [ -n "$cwd" ] && { ! hidden branch || ! hidden diff; }; then
     # git-dir absolute but common-dir relative, so the string compare below would
     # false-positive a plain main checkout as a worktree.
     if ! hidden branch; then
-      gitdirs=$(git --no-optional-locks -C "$cwd" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null)
-      gd=$(printf '%s\n' "$gitdirs" | sed -n '1p')
-      gcd=$(printf '%s\n' "$gitdirs" | sed -n '2p')
+      gitpaths=$(git --no-optional-locks -C "$cwd" rev-parse --path-format=absolute --git-dir --git-common-dir --show-toplevel 2>/dev/null)
+      gd=$(printf '%s\n' "$gitpaths" | sed -n '1p')
+      gcd=$(printf '%s\n' "$gitpaths" | sed -n '2p')
       if [ -n "$gd" ] && [ "$gd" != "$gcd" ]; then
         branch_glyph="⧉"                # worktree = a parallel copy of the repo
         branch_color="\033[38;5;182m"   # light mauve, distinct from the cyan main checkout
+        # Worktree name = folder name of the worktree root (third rev-parse
+        # output, --show-toplevel). Not the git-dir basename: that goes stale
+        # after `git worktree move` and gains numeric suffixes on basename
+        # collisions. Suppressed when it matches the branch (the common case)
+        # so we don't render "feature feature".
+        worktree_name=$(printf '%s\n' "$gitpaths" | sed -n '3p')
+        worktree_name=${worktree_name##*/}
+        # Three folder spellings carry no information the branch doesn't, so
+        # they collapse too:
+        #   - the branch with slashes flattened to dashes (fix/tpm -> fix-tpm)
+        #   - Claude Code's own layout, .claude/worktrees/<name> on branch
+        #     worktree-<name> (it already turns slashes into "+" on both sides)
+        #   - a sibling folder prefixed with the repo name (myrepo-fix-tpm),
+        #     the repo being the main checkout that owns --git-common-dir
+        # A collision suffix (fix-tpm-2) deliberately does not: it's the one
+        # thing that tells two worktrees on the same branch apart.
+        norm_branch=$(printf '%s' "$branch" | tr '/' '-')
+        repo_name=${gcd%/.git}
+        repo_name=${repo_name##*/}
+        repo_name=${repo_name%.git}
+        case "$worktree_name" in
+          "$norm_branch" | "${branch#worktree-}" | "${repo_name}-${norm_branch}")
+            worktree_name="" ;;
+        esac
+        # Different names render as a pair; middle-truncate both so the pair
+        # can't blow out the line. The tail is kept, so a collision suffix
+        # survives the cut.
+        if [ -n "$worktree_name" ]; then
+          worktree_display=$(middle_truncate "$worktree_name")
+          branch_display=$(middle_truncate "$branch")
+        fi
       fi
     fi
     if ! hidden diff; then
@@ -503,7 +548,12 @@ emit() {
 }
 
 if ! hidden branch && [ -n "$branch" ]; then
-  emit "${branch_color}${branch_glyph} %s${reset}" "$branch"
+  if [ -n "$worktree_name" ]; then
+    # Worktree name (always mauve here) leads; branch trails dimmed
+    emit "${branch_color}${branch_glyph} %s${reset} ${dim}%s${reset}" "$worktree_display" "$branch_display"
+  else
+    emit "${branch_color}${branch_glyph} %s${reset}" "$branch"
+  fi
 fi
 if [ -n "$diff_stat" ]; then
   emit '%b' "$diff_stat"

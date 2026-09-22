@@ -14,6 +14,8 @@ teardown() {
   cleanup_state "${TEST_SID}-a"
   cleanup_state "${TEST_SID}-b"
   [ -n "${TEST_GIT_REPO:-}" ] && rm -rf "$TEST_GIT_REPO" || true
+  # Worktrees made outside the repo (siblings) aren't removed with it
+  [ -n "${TEST_WORKTREE:-}" ] && rm -rf "$TEST_WORKTREE" || true
 }
 
 cleanup_state() {
@@ -21,6 +23,28 @@ cleanup_state() {
   sid=$(printf '%s' "$1" | tr -dc 'a-zA-Z0-9_-')
   rm -f "/tmp/claude-code-statusline-model-${sid}"
   rm -f "/tmp/claude-code-statusline-usage-${sid}"
+}
+
+# Create a git repo with one commit at $TEST_GIT_REPO ($1 = branch, default main)
+make_git_repo() {
+  TEST_GIT_REPO=$(mktemp -d)
+  git -C "$TEST_GIT_REPO" init -b "${1:-main}" >/dev/null 2>&1
+  git -C "$TEST_GIT_REPO" -c user.name=test -c user.email=test@test commit --allow-empty -m "init" >/dev/null 2>&1
+}
+
+# Add a linked worktree, publishing its path as $TEST_WORKTREE
+# ($TEST_GIT_REPO/.worktrees/$1); remaining args pass through to
+# `git worktree add` (e.g. -b branch, --detach)
+make_worktree() {
+  local folder="$1"; shift
+  make_worktree_at "$TEST_GIT_REPO/.worktrees/$folder" "$@"
+}
+
+# Same, at an arbitrary absolute path ($1), for layouts other than .worktrees/
+# (Claude Code's .claude/worktrees/, repo-prefixed siblings)
+make_worktree_at() {
+  TEST_WORKTREE="$1"; shift
+  git -C "$TEST_GIT_REPO" worktree add "$@" "$TEST_WORKTREE" >/dev/null 2>&1
 }
 
 # Build JSON input using jq for proper escaping

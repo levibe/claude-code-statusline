@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Show the worktree's folder name in the branch segment when it differs from the branch (folder in mauve, branch dimmed alongside). Three spellings count as a match: the branch with slashes flattened (`fix-tpm` for `fix/tpm`), Claude Code's own `.claude/worktrees/<name>` on branch `worktree-<name>`, and a sibling folder prefixed with the repo name (`myrepo-fix-tpm`)
+- Middle-truncate both names in that pair past 19 characters
+
 ## 1.7.0
 
 ### Added
