@@ -3,6 +3,8 @@
 SCRIPT="$BATS_TEST_DIRNAME/../statusline.sh"
 
 setup() {
+  export CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/config"
+  unset CLAUDE_STATUSLINE_SHOW
   TEST_SID="bats-$$-${BATS_TEST_NUMBER}"
   cleanup_state "$TEST_SID"
   cleanup_state "${TEST_SID}-a"
@@ -23,6 +25,14 @@ cleanup_state() {
   sid=$(printf '%s' "$1" | tr -dc 'a-zA-Z0-9_-')
   rm -f "/tmp/claude-code-statusline-model-${sid}"
   rm -f "/tmp/claude-code-statusline-usage-${sid}"
+}
+
+# Write a Claude Code session registry file, <config dir>/sessions/<pid>.json
+# Args: session_id name [pid] [updatedAt]
+make_registry() {
+  mkdir -p "$CLAUDE_CONFIG_DIR/sessions"
+  printf '{"pid":%s,"sessionId":"%s","name":"%s","nameSource":"derived","updatedAt":%s}' \
+    "${3:-0}" "$1" "$2" "${4:-0}" > "$CLAUDE_CONFIG_DIR/sessions/${3:-0}.json"
 }
 
 # Create a git repo with one commit at $TEST_GIT_REPO ($1 = branch, default main)
